@@ -9,9 +9,7 @@ import kotlin.system.exitProcess
     It should also exit when you send it an EOF (often Ctrl-D).
  */
 
-fun prompt() = "user> "
 fun rep(input: String) = input
-fun readLine(): String? = kotlin.io.readLine()
 
 tailrec fun mainLoop() {
     print(prompt())
