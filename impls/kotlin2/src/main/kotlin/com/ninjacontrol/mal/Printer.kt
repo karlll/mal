@@ -52,5 +52,8 @@ fun printString(form: MalType, debug: Boolean = false): String {
                 "${printString(key)} ${printString(value)}"
             }
         }
+        is MalFunction -> dbg {
+            form.toString()
+        }
     }
 }
