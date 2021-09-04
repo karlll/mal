@@ -1,7 +1,22 @@
 package main.kotlin.com.ninjacontrol.mal
 
 sealed class MalType
-data class MalList(val items: MutableList<MalType>) : MalType()
+data class MalList(val items: MutableList<MalType>) : MalType() {
+    val head: MalType
+        get() = items.firstOrNull() ?: MalNil
+    val tail: MalList
+        get() = MalList(items = items.drop(1).toMutableList())
+    val size: Int
+        get() = items.size
+
+    fun isEmpty() = items.isEmpty()
+    fun getOrNull(index: Int) = items.getOrNull(index)
+    fun get(index: Int) = items[index]
+}
+
+fun MalList.asTupleList(): List<List<MalType>> =
+    items.windowed(size = 2, step = 2, partialWindows = false)
+
 data class MalVector(val items: MutableList<MalType>) : MalType()
 data class MalMap(val items: MutableMap<MalType, MalType>) : MalType()
 data class MalError(val message: String) : MalType()
@@ -15,6 +30,7 @@ object MalNil : MalType()
 
 val True = MalBoolean(value = true)
 val False = MalBoolean(value = false)
+val EmptyList = MalList(items = mutableListOf())
 
 fun symbol(name: String) = MalSymbol(name)
 
@@ -22,7 +38,7 @@ typealias Arguments = Array<MalType>
 typealias FunctionBody = (args: Arguments) -> MalType
 
 class MalFunction(private val functionBody: FunctionBody) : MalType() {
-    fun apply(args: Array<MalType>): MalType = functionBody.invoke(args)
+    fun apply(args: MalList): MalType = functionBody.invoke(args.items.toTypedArray())
 }
 
 operator fun MalInteger.plus(other: MalInteger): MalInteger = MalInteger(value + other.value)
