@@ -1,6 +1,6 @@
 package main.kotlin.com.ninjacontrol.mal
 
-fun printString(form: MalType, debug: Boolean = false): String {
+fun printString(form: MalType, printReadably: Boolean = true, debug: Boolean = false): String {
 
     val dbg = fun(str: () -> String) =
         when (debug) {
@@ -22,7 +22,14 @@ fun printString(form: MalType, debug: Boolean = false): String {
         }
         is MalBoolean -> dbg { form.value.toString() }
         is MalNil -> dbg { "nil" }
-        is MalString -> dbg { "\"${form.value}\"" }
+        is MalString -> dbg {
+            val parsed = StringParser.parse(form.value)
+            when {
+                parsed.error != null -> (parsed.error ?: "unknown error").let { "*** $it" }
+                printReadably -> "\"${parsed.escapedUnqouted}\""
+                else -> "\"${parsed.unescapedUnqouted}\""
+            }
+        }
         is MalKeyword -> dbg { ":${form.name}" }
         is MalVector -> dbg {
             form.items.joinToString(
@@ -39,7 +46,9 @@ fun printString(form: MalType, debug: Boolean = false): String {
             }
         }
         is MalFunction -> dbg {
-            form.toString()
+            "#<fun>"
         }
     }
 }
+
+fun out(string: String, newLine: Boolean = true) = if (newLine) println(string) else print(string)

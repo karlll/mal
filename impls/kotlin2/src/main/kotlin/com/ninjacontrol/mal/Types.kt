@@ -12,6 +12,9 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
     fun isEmpty() = items.isEmpty()
     fun getOrNull(index: Int) = items.getOrNull(index)
     fun get(index: Int) = items[index]
+    fun forEach(function: (MalType) -> Unit) {
+        items.forEach(function)
+    }
 }
 
 fun MalList.asTupleList(): List<List<MalType>> =
@@ -30,15 +33,29 @@ object MalNil : MalType()
 
 val True = MalBoolean(value = true)
 val False = MalBoolean(value = false)
-val EmptyList = MalList(items = mutableListOf())
 
 fun symbol(name: String) = MalSymbol(name)
+fun list(vararg items: MalType): MalList = MalList(items.toMutableList())
+fun string(value: String) = MalString(value)
+fun int(value: Int) = MalInteger(value)
+fun emptyList() = MalList(items = mutableListOf())
 
 typealias Arguments = Array<MalType>
 typealias FunctionBody = (args: Arguments) -> MalType
 
 class MalFunction(private val functionBody: FunctionBody) : MalType() {
     fun apply(args: MalList): MalType = functionBody.invoke(args.items.toTypedArray())
+    override fun hashCode() = functionBody.hashCode()
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MalFunction
+
+        if (functionBody != other.functionBody) return false
+
+        return true
+    }
 }
 
 operator fun MalInteger.plus(other: MalInteger): MalInteger = MalInteger(value + other.value)
@@ -46,27 +63,11 @@ operator fun MalInteger.minus(other: MalInteger): MalInteger = MalInteger(value 
 operator fun MalInteger.times(other: MalInteger): MalInteger = MalInteger(value * other.value)
 operator fun MalInteger.div(other: MalInteger): MalInteger = MalInteger(value / other.value)
 operator fun MalInteger.rem(other: MalInteger): MalInteger = MalInteger(value % other.value)
+operator fun MalInteger.compareTo(other: MalInteger): Int = when {
+    value < other.value -> -1
+    value > other.value -> 1
+    else -> 0
+}
+
 val MalInteger.isZero
     get() = value == 0
-
-fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
-    MalFunction { args ->
-        if (precondition != null) {
-            when (val preconditionResult = precondition.invoke(args)) {
-                is MalError -> return@MalFunction preconditionResult
-            }
-        }
-        function.invoke(args)
-    }
-
-inline fun <reified T> assertArgumentType(args: Arguments) = args.all { arg -> arg is T }
-
-fun integerFunction(function: FunctionBody): MalFunction = func(
-    precondition = { args ->
-        if (!assertArgumentType<MalInteger>(args)) {
-            MalError("Invalid argument type")
-        } else null
-    }
-) { args ->
-    function.invoke(args)
-}

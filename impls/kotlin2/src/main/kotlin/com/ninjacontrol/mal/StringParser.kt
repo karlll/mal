@@ -5,15 +5,15 @@ class StringParser() {
     var error: String? = null
     var parsed: String? = null
 
-    val unescaped: String?
+    val escapedQuoted: String?
         get() = when (parsed) {
             null -> null
             else -> raw
         }
-    val unqouted: String?
-        get() = parsed?.let { return it.substring(1, it.length - 1) }
     val unescapedUnqouted: String?
-        get() = unescaped?.let { return it.substring(1, it.length - 1) }
+        get() = parsed?.let { return it.substring(1, it.length - 1) }
+    val escapedUnqouted: String?
+        get() = escapedQuoted?.let { return it.substring(1, it.length - 1) }
 
     private fun parse(string: String?) {
 

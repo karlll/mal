@@ -2,7 +2,64 @@ package main.kotlin.com.ninjacontrol.mal
 
 typealias EnvironmentMap = MutableMap<MalSymbol, MalType>
 
-class Environment(private val outer: Environment? = null) {
+class Environment(
+    private val outer: Environment? = null,
+
+) {
+
+    companion object {
+
+        private fun zipWithVariadicParams(
+            bindings: List<MalType>,
+            expressions: List<MalType>,
+            env: Environment
+        ): Environment? {
+            val markerPos = bindings.indexOfFirst { it is MalSymbol && it.name == "&" }
+            if (markerPos != (bindings.size - 1) - 1) {
+                // sanity check: we only understand a '&' marker if it is in the next to last position
+                return null
+            }
+            val paramsFirst = bindings.subList(0, markerPos)
+            val paramRest = bindings[markerPos + 1]
+            val expressionsFirst = expressions.subList(0, markerPos)
+            val expressionsRest = expressions.subList(markerPos, expressions.size)
+            paramsFirst.zip(expressionsFirst).forEach { (symbol, expression) ->
+                env.set(symbol as MalSymbol, expression)
+            }
+            env.set(paramRest as MalSymbol, MalList(items = expressionsRest.toMutableList()))
+            return env
+        }
+
+        private fun zipParams(
+            bindings: List<MalType>,
+            expressions: List<MalType>,
+            env: Environment
+        ): Environment {
+            bindings.zip(expressions).forEach { (symbol, expression) ->
+                env.set(symbol as MalSymbol, expression)
+            }
+            return env
+        }
+
+        fun withBindings(
+            outer: Environment? = null,
+            bindings: List<MalType>,
+            expressions: List<MalType>
+        ): Environment? {
+            val env = Environment(outer)
+            return when {
+                bindings.any { it !is MalSymbol } -> null
+                bindings.any { it is MalSymbol && it.name == "&" } -> zipWithVariadicParams(
+                    bindings,
+                    expressions,
+                    env
+                )
+                (bindings.size == expressions.size) -> zipParams(bindings, expressions, env)
+                else -> null
+            }
+        }
+    }
+
     private val data: EnvironmentMap = mutableMapOf()
     fun set(symbol: MalSymbol, value: MalType): MalType {
         data[symbol] = value
@@ -22,40 +79,5 @@ class Environment(private val outer: Environment? = null) {
 
     fun add(environment: EnvironmentMap) {
         data.putAll(from = environment)
-    }
-}
-
-val builtIn: EnvironmentMap = mutableMapOf(
-    symbol("+") to arithmeticFunction(ArithmeticOperation.Add),
-    symbol("-") to arithmeticFunction(ArithmeticOperation.Subtract),
-    symbol("*") to arithmeticFunction(ArithmeticOperation.Multiply),
-    symbol("/") to arithmeticFunction(ArithmeticOperation.Divide),
-    symbol("%") to arithmeticFunction(ArithmeticOperation.Modulo),
-)
-
-enum class ArithmeticOperation {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo
-}
-
-fun arithmeticFunction(operation: ArithmeticOperation) = integerFunction { args ->
-    if (operation == ArithmeticOperation.Divide && args.drop(1)
-        .any { (it as MalInteger).isZero }
-    ) {
-        return@integerFunction MalError("Division by zero")
-    }
-    args.reduce { acc, arg ->
-        val op1 = acc as MalInteger
-        val op2 = arg as MalInteger
-        when (operation) {
-            ArithmeticOperation.Add -> op1 + op2
-            ArithmeticOperation.Subtract -> op1 - op2
-            ArithmeticOperation.Multiply -> op1 * op2
-            ArithmeticOperation.Divide -> op1 / op2
-            ArithmeticOperation.Modulo -> op1 % op2
-        }
     }
 }

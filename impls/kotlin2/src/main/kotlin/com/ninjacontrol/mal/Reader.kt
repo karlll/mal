@@ -113,9 +113,11 @@ fun readAtom(reader: Reader): MalType {
             Atoms.integerPattern.matches(atom) -> MalInteger(atom.toInt())
             Atoms.stringPattern.matches(atom) -> {
                 val parsed = StringParser.parse(atom)
-                parsed.unescapedUnqouted?.let {
-                    MalString(value = it)
-                } ?: MalError(parsed.error ?: "Unexpected error when parsing string")
+                if (parsed.unescapedUnqouted != null && parsed.escapedUnqouted != null) {
+                    MalString(
+                        value = atom
+                    )
+                } else MalError(parsed.error ?: "Unexpected error when parsing string")
             }
             Atoms.keywordPattern.matches(atom) -> MalKeyword(name = atom.trimStart(':'))
             Atoms.booleanPattern.matches(atom) -> MalBoolean(value = atom.toBoolean())
