@@ -15,6 +15,10 @@ fun assertNeverExecuted() {
     throw AssertionException("assertion failed, should never execute!")
 }
 
+fun fail(message: String) {
+    throw AssertionException("test failed: $message")
+}
+
 fun assertTrue(a: Boolean, context: String? = null) {
     if (!a) throw AssertionException(
         "assertion failed, value is false",
@@ -47,6 +51,18 @@ fun assertError(a: MalType, context: String? = null) {
 
 fun assertNonError(a: MalType, context: String? = null) {
     if (a is MalError) throw AssertionException("assertion failed, $a is an error", context)
+}
+
+fun assertEqual(a: String, b: String, context: String? = null) {
+    if (a != b) throw AssertionException("assertion failed, \"$a\" is not equal to \"$b\"", context)
+}
+
+fun assertEqual(a: Int, b: Int, context: String? = null) {
+    if (a != b) throw AssertionException("assertion failed, $a is not equal to $b", context)
+}
+
+fun assertEqual(a: Char, b: Char, context: String? = null) {
+    if (a != b) throw AssertionException("assertion failed, '$a' is not equal to '$b'", context)
 }
 
 fun assertEqual(a: MalType, b: MalType, context: String? = null) {

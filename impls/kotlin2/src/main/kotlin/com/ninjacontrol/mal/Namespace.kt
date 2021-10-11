@@ -90,8 +90,8 @@ fun integerFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
 
 /* Printing */
 
-fun prn() = functionOfAtLeastArity(1) { args ->
-    val string = args.joinToString(separator = "", prefix = "", postfix = "") {
+fun prn() = func { args ->
+    val string = args.joinToString(separator = " ") {
         printString(
             it,
             printReadably = true
@@ -101,18 +101,26 @@ fun prn() = functionOfAtLeastArity(1) { args ->
     MalNil
 }
 
-fun pr_str() = functionOfAtLeastArity(1) { args ->
-    val string = args.joinToString(separator = " ") { printString(it, printReadably = true) }
+fun pr_str() = func { args ->
+    val string =
+        args.joinToString(separator = " ") { printString(it, printReadably = true, quoted = true) }
     MalString(value = string)
 }
 
-fun str() = functionOfAtLeastArity(1) { args ->
-    val string = args.joinToString { printString(it, printReadably = false) }
+fun str() = func { args ->
+    val string =
+        args.joinToString(separator = "") { printString(it, printReadably = false, quoted = false) }
     MalString(value = string)
 }
 
-fun println() = functionOfAtLeastArity(1) { args ->
-    val string = args.joinToString(separator = " ") { printString(it, printReadably = false) }
+fun println() = func { args ->
+    val string = args.joinToString(separator = " ") {
+        printString(
+            it,
+            printReadably = false,
+            quoted = false
+        )
+    }
     out(string)
     MalNil
 }

@@ -1,5 +1,6 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
+import main.kotlin.com.ninjacontrol.mal.MalString
 import main.kotlin.com.ninjacontrol.mal.int
 
 class NamespaceTest : TestSuite {
@@ -26,6 +27,11 @@ class NamespaceTest : TestSuite {
             description = "count: 'nil' counts as 0 elements"
             input = """(count nil)"""
             expectedAst = int(0)
+        },
+        testReadEval {
+            description = "pr-str: 0 arguments returns empty string"
+            input = """(pr-str)"""
+            expectedAst = MalString("")
         }
     )
 

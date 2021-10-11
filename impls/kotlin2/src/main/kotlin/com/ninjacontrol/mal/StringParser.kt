@@ -2,22 +2,19 @@ package main.kotlin.com.ninjacontrol.mal
 
 class StringParser() {
     private var raw: String? = null
+    var quoted: Boolean = true
     var error: String? = null
     var parsed: String? = null
 
-    val escapedQuoted: String?
-        get() = when (parsed) {
-            null -> null
-            else -> raw
-        }
     val unescapedUnqouted: String?
-        get() = parsed?.let { return it.substring(1, it.length - 1) }
+        get() = parsed?.let { return if (quoted) it.substring(1, it.length - 1) else it }
     val escapedUnqouted: String?
-        get() = escapedQuoted?.let { return it.substring(1, it.length - 1) }
+        get() = parsed?.let { return if (quoted) raw?.substring(1, it.length - 1) else raw }
 
-    private fun parse(string: String?) {
+    private fun parse(string: String?, quoted: Boolean = true) {
 
         raw = string
+        this.quoted = quoted
         val sb = StringBuilder()
         if (string != null) {
 
@@ -26,7 +23,7 @@ class StringParser() {
                 sb.append(char); escaped = false
             }
 
-            if (string.length < 2 || (string.first() != '"' || string.last() != '"')
+            if (quoted && (string.length < 2 || (string.first() != '"' || string.last() != '"'))
             ) {
                 error = "Invalid or unbalanced string"
                 return
@@ -42,13 +39,13 @@ class StringParser() {
                     }
                     '"' -> when (escaped) {
                         true -> {
-                            if (pos == string.length - 1) {
+                            if (quoted && pos == string.length - 1) {
                                 error = "unbalanced string"
                                 return@parse
                             } else appendEscaped(char)
                         }
                         false -> {
-                            if (pos > 0 && pos < string.length - 1) {
+                            if (quoted && pos > 0 && pos < string.length - 1) {
                                 error = "Unexpected end of string (at position $pos)"
                                 return@parse
                             } else {
@@ -90,9 +87,9 @@ class StringParser() {
 
     companion object {
 
-        fun parse(string: String): StringParser {
+        fun parse(string: String, quoted: Boolean = true): StringParser {
             val parser = StringParser()
-            parser.parse(string)
+            parser.parse(string, quoted)
             return parser
         }
     }

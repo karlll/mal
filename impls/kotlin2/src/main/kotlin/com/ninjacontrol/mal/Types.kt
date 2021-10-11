@@ -6,6 +6,8 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
         get() = items.firstOrNull() ?: MalNil
     val tail: MalList
         get() = MalList(items = items.drop(1).toMutableList())
+    val last: MalType
+        get() = items.lastOrNull() ?: MalNil
     val size: Int
         get() = items.size
 

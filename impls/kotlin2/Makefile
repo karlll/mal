@@ -1,5 +1,5 @@
-SUPPORT=Prompt.kt ReadLine.kt Reader.kt Printer.kt Types.kt StringParser.kt Environment.kt Namespace.kt Compare.kt
-TEST=Assertions.kt EnvironmentTest.kt FunctionsTest.kt NamespaceTest.kt TestSuite.kt
+SUPPORT=Prompt.kt ReadLine.kt Reader.kt Printer.kt Types.kt StringParser.kt Environment.kt Namespace.kt Compare.kt String.kt
+TEST=Assertions.kt EnvironmentTest.kt FunctionsTest.kt NamespaceTest.kt TestSuite.kt StringTest.kt
 MAKEFILE_PATH=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 SOURCE_PATH=${MAKEFILE_PATH}src/main/kotlin/com/ninjacontrol/mal
 SOURCES=${SUPPORT:%.kt=${SOURCE_PATH}/%.kt}

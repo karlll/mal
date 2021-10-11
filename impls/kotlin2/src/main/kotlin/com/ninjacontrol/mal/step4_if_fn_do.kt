@@ -58,14 +58,10 @@ fun `if`(expressions: MalList, env: Environment): MalType {
 }
 
 fun `do`(expressions: MalList, env: Environment): MalType {
-    var evaluated: MalType? = null
-    expressions.forEach { expression ->
-        evaluated = evalAst(expression, env)
-        if (evaluated is MalError) { // TODO: toggle break on error
-            return@forEach
-        }
+    return when (val evaluated = evalAst(expressions, env)) {
+        is MalList -> evaluated.last
+        else -> evaluated
     }
-    return evaluated ?: MalNil
 }
 
 fun define(bindingList: MalList, env: Environment): MalType {
@@ -175,6 +171,7 @@ tailrec fun mainLoop() {
     mainLoop()
 }
 
-const val runTests = false
-
-fun main() = if (!runTests) mainLoop() else runSuite()
+fun main(args: Array<String>) = when {
+    args.contains("--runTests") -> runSuite()
+    else -> mainLoop()
+}

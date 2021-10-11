@@ -56,7 +56,8 @@ class AllTests : TestSuite {
     private val testSuites = listOf<TestSuite>(
         EnvironmentTest(),
         FunctionsTest(),
-        NamespaceTest()
+        NamespaceTest(),
+        StringTest(),
     )
 
     override fun run(): Boolean {
@@ -77,7 +78,7 @@ fun test(case: DefaultTestCase.() -> Unit): TestCase {
 fun testReadEval(case: ReadEvalTestCase.() -> Unit): TestCase {
     val t = ReadEvalTestCase()
     t.case()
-    t.verify = { assertReadEval(input = t.input, result = t.expectedAst, context = t.description) }
+    t.verify = { assertReadEval(input = t.input, result = t.expectedAst) }
     return t
 }
 
