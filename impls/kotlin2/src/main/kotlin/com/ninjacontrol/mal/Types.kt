@@ -19,10 +19,19 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
     }
 }
 
+data class MalVector(val items: MutableList<MalType>) : MalType() {
+    val size: Int
+        get() = items.size
+
+    fun isEmpty() = items.isEmpty()
+}
+
 fun MalList.asTupleList(): List<List<MalType>> =
     items.windowed(size = 2, step = 2, partialWindows = false)
 
-data class MalVector(val items: MutableList<MalType>) : MalType()
+fun MalList.asVector(): MalVector = MalVector(items = items)
+fun MalVector.asList(): MalList = MalList(items = items)
+
 data class MalMap(val items: MutableMap<MalType, MalType>) : MalType()
 data class MalError(val message: String) : MalType()
 data class MalSymbol(val name: String) : MalType()

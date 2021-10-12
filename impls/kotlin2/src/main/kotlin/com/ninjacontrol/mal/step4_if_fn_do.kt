@@ -30,14 +30,16 @@ fun fn(expressions: MalList, env: Environment): MalType {
     if (expressions.size != 2) {
         return MalError("Invalid number of arguments, expected 2")
     }
-    if (expressions.get(0) !is MalList) {
-        return MalError("Error creating bindings, invalid type, expected list.")
+
+    val functionBindings: List<MalType> = when (val bindings = expressions.get(0)) {
+        is MalList -> bindings.items
+        is MalVector -> bindings.items
+        else -> return MalError("Error creating bindings, invalid type, expected list or vector")
     }
-    val functionBindings = expressions.get(0) as MalList
     return MalFunction { functionArguments ->
         val newEnv = Environment.withBindings(
             env,
-            bindings = functionBindings.items,
+            bindings = functionBindings,
             expressions = functionArguments.toList()
         )
         return@MalFunction newEnv?.let { eval(expressions.get(1), newEnv) }

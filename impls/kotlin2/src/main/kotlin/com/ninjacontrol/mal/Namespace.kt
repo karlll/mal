@@ -181,6 +181,7 @@ fun `list?`() = functionOfArity(1) { args ->
 fun `empty?`() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
         is MalList -> if (arg.isEmpty()) True else False
+        is MalVector -> if (arg.isEmpty()) True else False
         else -> MalError("Argument is not a list")
     }
 }
@@ -189,7 +190,8 @@ fun count() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
         is MalNil -> MalInteger(0)
         is MalList -> MalInteger(arg.size)
-        else -> MalError("Argument is not a list")
+        is MalVector -> MalInteger(arg.size)
+        else -> MalError("Argument is not a list nor a vector")
     }
 }
 
