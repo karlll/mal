@@ -57,6 +57,9 @@ fun printString(
         is MalFunction -> dbg {
             "#<fun>"
         }
+        is MalFunctionContainer -> dbg {
+            "<function container>"
+        }
     }
 }
 

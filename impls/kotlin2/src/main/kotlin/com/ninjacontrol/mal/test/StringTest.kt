@@ -51,8 +51,6 @@ class StringTest : TestSuite {
                 val result = unquote(quoted)
                 assertNotNull(result)
                 assertEqual(result!!, unquoted)
-                assertEqual(unquote("\"foo")!!, "foo")
-                assertEqual(unquote("foo\"")!!, "foo")
                 assertEqual(unquote("\"\"")!!, "")
             }
         },

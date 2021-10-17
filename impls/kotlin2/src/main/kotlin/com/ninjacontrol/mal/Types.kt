@@ -17,6 +17,8 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
     fun forEach(function: (MalType) -> Unit) {
         items.forEach(function)
     }
+
+    fun subList(fromIndex: Int, toIndex: Int) = MalList(items.subList(fromIndex, toIndex))
 }
 
 data class MalVector(val items: MutableList<MalType>) : MalType() {
@@ -68,6 +70,13 @@ class MalFunction(private val functionBody: FunctionBody) : MalType() {
         return true
     }
 }
+
+data class MalFunctionContainer(
+    val ast: MalType,
+    val params: MalType,
+    val environment: Environment,
+    val fn: MalFunction
+) : MalType()
 
 operator fun MalInteger.plus(other: MalInteger): MalInteger = MalInteger(value + other.value)
 operator fun MalInteger.minus(other: MalInteger): MalInteger = MalInteger(value - other.value)

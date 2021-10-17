@@ -55,9 +55,10 @@ class AllTests : TestSuite {
 
     private val testSuites = listOf<TestSuite>(
         EnvironmentTest(),
-        FunctionsTest(),
         NamespaceTest(),
         StringTest(),
+        EvaluationTest(),
+        FunctionsTest(),
     )
 
     override fun run(): Boolean {

@@ -12,7 +12,7 @@ class FunctionsTest : TestSuite {
         testReadEval {
             description = "Invocation with simple parameters, return string"
             input = """( (fn* (a) (pr-str "hello" a)) "world" )"""
-            expectedAst = string("hello world")
+            expectedAst = string("\"hello\" \"world\"")
         },
         testReadEval {
             description = "Invocation with simple parameters, return integer"

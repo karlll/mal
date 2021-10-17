@@ -1,5 +1,7 @@
 package main.kotlin.com.ninjacontrol.mal
 
+infix fun MalType.eq(other: MalType): Boolean = isEqual(this, other)
+
 fun isEqual(a: MalType, b: MalType): Boolean {
     return when {
         a is MalSymbol && b is MalSymbol -> a.name == b.name
