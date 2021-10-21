@@ -1,5 +1,8 @@
 package main.kotlin.com.ninjacontrol.mal
 
+import java.io.File
+import java.nio.charset.Charset
+
 val namespace: EnvironmentMap = mutableMapOf(
     symbol("+") to arithmeticFunction(ArithmeticOperation.Add),
     symbol("-") to arithmeticFunction(ArithmeticOperation.Subtract),
@@ -21,7 +24,14 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol(">=") to gte(),
     symbol("<") to lt(),
     symbol("<=") to lte(),
-    symbol("not") to not()
+    symbol("not") to not(),
+    symbol("read-string") to `read-string`(),
+    symbol("slurp") to slurp(),
+    symbol("atom") to atom(),
+    symbol("deref") to deref(),
+    symbol("atom?") to `atom?`(),
+    symbol("reset!") to reset(),
+    symbol("swap!") to swap()
 )
 
 fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
@@ -66,10 +76,37 @@ fun functionOfAtLeastArity(n: Int, function: FunctionBody): MalFunction =
         function.invoke(args)
     }
 
+inline fun <reified T> typedArgumentFunction(
+    arity: Int = -1,
+    minArity: Int = -1,
+    crossinline function: FunctionBody
+): MalFunction = func(
+    precondition = { args ->
+        when {
+            (
+                arity > 0 && !assertNumberOfArguments(
+                    args,
+                    arity
+                )
+                ) -> MalError("Invalid number of arguments, expected $arity arguments, got ${args.size}.")
+            (
+                minArity > 0 && !assertNumberOfArgumentsOrMore(
+                    args,
+                    minArity
+                )
+                ) -> MalError("Invalid number of arguments, expected at least $minArity arguments, got ${args.size}.")
+            !assertArgumentType<T>(args) -> MalError("Invalid argument type, ${T::class} expected")
+            else -> null
+        }
+    }
+) { args ->
+    function.invoke(args)
+}
+
 fun integerFunction(function: FunctionBody): MalFunction = func(
     precondition = { args ->
         if (!assertArgumentType<MalInteger>(args)) {
-            MalError("Invalid argument type")
+            MalError("Invalid argument type, expected an integer")
         } else null
     }
 ) { args ->
@@ -80,7 +117,19 @@ fun integerFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
     precondition = { args ->
         when {
             args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            !assertArgumentType<MalInteger>(args) -> MalError("Invalid argument type")
+            !assertArgumentType<MalInteger>(args) -> MalError("Invalid argument type, expected an integer")
+            else -> null
+        }
+    }
+) { args ->
+    function.invoke(args)
+}
+
+fun stringFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
+    precondition = { args ->
+        when {
+            args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
+            !assertArgumentType<MalString>(args) -> MalError("Invalid argument type, expected a string")
             else -> null
         }
     }
@@ -103,13 +152,25 @@ fun prn() = func { args ->
 
 fun pr_str() = func { args ->
     val string =
-        args.joinToString(separator = " ") { printString(it, printReadably = true, quoted = true) }
+        args.joinToString(separator = " ") {
+            printString(
+                it,
+                printReadably = true,
+                quoted = true
+            )
+        }
     MalString(value = string)
 }
 
 fun str() = func { args ->
     val string =
-        args.joinToString(separator = "") { printString(it, printReadably = false, quoted = false) }
+        args.joinToString(separator = "") {
+            printString(
+                it,
+                printReadably = false,
+                quoted = false
+            )
+        }
     MalString(value = string)
 }
 
@@ -140,7 +201,11 @@ fun gt() = integerFunctionOfArity(2) {
 }
 
 fun gte() = integerFunctionOfArity(2) {
-    compare(it[0] as MalInteger, it[1] as MalInteger, ComparisonOperation.GreaterThanOrEqual)
+    compare(
+        it[0] as MalInteger,
+        it[1] as MalInteger,
+        ComparisonOperation.GreaterThanOrEqual
+    )
 }
 
 fun lt() = integerFunctionOfArity(2) {
@@ -234,6 +299,74 @@ fun arithmeticFunction(operation: ArithmeticOperation) = integerFunction { args 
             ArithmeticOperation.Multiply -> op1 * op2
             ArithmeticOperation.Divide -> op1 / op2
             ArithmeticOperation.Modulo -> op1 % op2
+        }
+    }
+}
+
+/* Input */
+
+fun `read-string`() = stringFunctionOfArity(1) { args ->
+    readStr((args[0] as MalString).value)
+}
+
+fun slurp() = stringFunctionOfArity(1) { args ->
+    val fileName = args[0] as MalString
+    readFileAsString(fileName.value, Charsets.UTF_8)
+}
+
+fun readFileAsString(fileName: String, charSet: Charset): MalType {
+    val file = File(fileName)
+    return when {
+        !file.exists() -> MalError("File \"$fileName\" does not exist")
+        !file.canRead() -> MalError("Can not read \"$fileName\"")
+        file.length() > ((2L * 1024 * 1024 * 1024) - 1) -> MalError("File is too large")
+        else -> MalString(file.readText(charSet))
+    }
+}
+
+/* Atom */
+
+fun atom() = functionOfArity(1) { args ->
+    MalAtom(args[0])
+}
+
+fun deref() = typedArgumentFunction<MalAtom>(arity = 1) { args ->
+    val atom = args[0] as MalAtom
+    atom.value
+}
+
+fun `atom?`() = functionOfArity(1) { args ->
+    if (args[0] is MalAtom) True else False
+}
+
+fun reset() = functionOfArity(2) { args ->
+    when {
+        (args[0] !is MalAtom) -> MalError("Not an atom")
+        else -> {
+            val atom = args[0] as MalAtom
+            atom.value = args[1]
+            atom.value
+        }
+    }
+}
+
+fun swap() = functionOfAtLeastArity(2) { args ->
+    when {
+        (args[0] !is MalAtom) -> MalError("Argument is not an atom")
+        (args[1] !is MalFunctionContainer) -> MalError("Argument is not a function expression")
+        else -> {
+            val atom = args[0] as MalAtom
+            val swapFunction = args[1] as MalFunctionContainer
+            val additionalArgs =
+                if (args.size > 2) args.sliceArray(2 until args.size) else emptyArray()
+            val swapFunctionArgs = list(atom.value, *additionalArgs)
+            when (val newValue = swapFunction.fn.apply(swapFunctionArgs)) {
+                is MalError -> newValue
+                else -> {
+                    atom.value = newValue
+                    atom.value
+                }
+            }
         }
     }
 }

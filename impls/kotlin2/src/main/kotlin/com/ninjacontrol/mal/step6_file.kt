@@ -4,27 +4,6 @@ import main.kotlin.com.ninjacontrol.mal.test.runSuite
 import kotlin.system.exitProcess
 
 fun read(input: String) = readStr(input)
-fun __eval(ast: MalType, env: Environment) = when (ast) {
-    is MalList -> when (ast.size) {
-        0 -> ast
-        else ->
-            if (ast.head is MalSymbol) {
-                val head = ast.head as MalSymbol
-                when (head.name) {
-                    "def!" -> define(ast.tail, env)
-                    "let*" -> let(ast.tail, env)
-                    "do" -> `do`(ast.tail, env)
-                    "if" -> `if`(ast.tail, env)
-                    "fn*" -> fn(ast.tail, env)
-                    "quote" -> quote(ast.tail, env)
-                    else -> applyFunction(list = ast, env)
-                }
-            } else {
-                applyFunction(list = ast, env)
-            }
-    }
-    else -> evalAst(ast, env)
-}
 
 object Symbols {
     val def = MalSymbol("def!")
@@ -33,6 +12,7 @@ object Symbols {
     val `if` = MalSymbol("if")
     val fn = MalSymbol("fn*")
     val quote = MalSymbol("quote")
+    val eval = MalSymbol("eval")
 }
 
 fun eval(ast: MalType, env: Environment): MalType {
@@ -91,16 +71,16 @@ fun eval(ast: MalType, env: Environment): MalType {
         when {
             head eq Symbols.def -> return define(currentAst.tail, currentEnv)
             head eq Symbols.let -> {
-                val (resultAst, newEnv) = let2(currentAst.tail, currentEnv)
+                val (resultAst, newEnv) = let(currentAst.tail, currentEnv)
                 if (resultAst is MalError) {
                     return resultAst
                 }
                 nextAst = resultAst
                 newEnv?.let { nextEnv = newEnv }
             }
-            head eq Symbols.`do` -> nextAst = `do2`(currentAst.tail, currentEnv)
-            head eq Symbols.`if` -> nextAst = `if2`(currentAst.tail, currentEnv)
-            head eq Symbols.fn -> nextAst = fn2(currentAst.tail, currentEnv)
+            head eq Symbols.`do` -> nextAst = `do`(currentAst.tail, currentEnv)
+            head eq Symbols.`if` -> nextAst = `if`(currentAst.tail, currentEnv)
+            head eq Symbols.fn -> nextAst = fn(currentAst.tail, currentEnv)
             head eq Symbols.quote -> return quote(currentAst.tail, currentEnv)
             else -> apply()?.let {
                 return it
@@ -111,7 +91,7 @@ fun eval(ast: MalType, env: Environment): MalType {
     }
 }
 
-fun fn2(expressions: MalList, env: Environment): MalType {
+fun fn(expressions: MalList, env: Environment): MalType {
 
     if (expressions.size != 2) {
         return MalError("Invalid number of arguments, expected 2")
@@ -138,40 +118,7 @@ fun fn2(expressions: MalList, env: Environment): MalType {
     )
 }
 
-fun fn(expressions: MalList, env: Environment): MalType {
-    if (expressions.size != 2) {
-        return MalError("Invalid number of arguments, expected 2")
-    }
-
-    val functionBindings: List<MalType> = when (val bindings = expressions.get(0)) {
-        is MalList -> bindings.items
-        is MalVector -> bindings.items
-        else -> return MalError("Error creating bindings, invalid type, expected list or vector")
-    }
-    return MalFunction { functionArguments ->
-        val newEnv = Environment.withBindings(
-            env,
-            bindings = functionBindings,
-            expressions = functionArguments.toList()
-        )
-        return@MalFunction newEnv?.let { eval(expressions.get(1), newEnv) }
-            ?: MalError("Error creating environment.")
-    }
-}
-
 fun `if`(expressions: MalList, env: Environment): MalType {
-    if (expressions.size < 2) return MalError("Invalid conditional expression")
-    return when (val condition = eval(expressions.get(0), env)) {
-        is MalError -> MalError("Error when evaluating condition, ${condition.message}")
-        is MalBoolean, is MalNil -> when (condition) {
-            False, MalNil -> expressions.getOrNull(2)?.let { eval(it, env) } ?: MalNil
-            else -> eval(expressions.get(1), env)
-        }
-        else -> eval(expressions.get(1), env)
-    }
-}
-
-fun `if2`(expressions: MalList, env: Environment): MalType {
     if (expressions.size < 2) return MalError("Invalid conditional expression")
     return when (val condition = eval(expressions.get(0), env)) {
         is MalError -> MalError("Error when evaluating condition, ${condition.message}")
@@ -184,13 +131,6 @@ fun `if2`(expressions: MalList, env: Environment): MalType {
 }
 
 fun `do`(expressions: MalList, env: Environment): MalType {
-    return when (val evaluated = evalAst(expressions, env)) {
-        is MalList -> evaluated.last
-        else -> evaluated
-    }
-}
-
-fun `do2`(expressions: MalList, env: Environment): MalType {
     if (expressions.isEmpty()) return MalNil
     evalAst(expressions.subList(0, expressions.size), env)
     return expressions.last
@@ -215,46 +155,7 @@ fun define(bindingList: MalList, env: Environment): MalType {
     }
 }
 
-fun let(expressions: MalList, env: Environment): MalType {
-
-    fun evaluateWithBindings(
-        expression: MalType,
-        bindings: List<MalType>,
-        env: Environment
-    ): MalType =
-        if (bindings.size % 2 == 0) {
-            bindings.chunked(2).forEach {
-                val key = it[0]
-                val evaluated = eval(it[1], env)
-                if (evaluated is MalError) {
-                    return@evaluateWithBindings MalError("Error evaluating environment, ${evaluated.message}")
-                } else if (key !is MalSymbol) {
-                    return@evaluateWithBindings MalError("Error evaluating environment, key must be a symbol")
-                } else {
-                    env.set(key, evaluated)
-                }
-            }
-            eval(expression, env)
-        } else {
-            MalError("Invalid binding list (odd number of items)")
-        }
-
-    return when (expressions.size) {
-        2 -> {
-            val newEnv = Environment(outer = env)
-            val newBindings = expressions.get(0)
-            val expression = expressions.get(1)
-            when (newBindings) {
-                is MalList -> evaluateWithBindings(expression, newBindings.items, newEnv)
-                is MalVector -> evaluateWithBindings(expression, newBindings.items, newEnv)
-                else -> MalError("Invalid binding (not a list or vector)")
-            }
-        }
-        else -> MalError("Invalid number of arguments")
-    }
-}
-
-fun let2(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
+fun let(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
 
     fun evaluateWithBindings(
         expression: MalType,
@@ -293,38 +194,6 @@ fun let2(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
     }
 }
 
-fun applyFunction(list: MalList, env: Environment): MalType {
-    return when (val evaluatedList = evalAst(list, env)) {
-        is MalList -> {
-            when (val head = evaluatedList.head) {
-                is MalFunction ->
-                    head.apply(evaluatedList.tail)
-                is MalError ->
-                    MalError("Cannot apply (${head.message})")
-                else ->
-                    MalError("Not a function")
-            }
-        }
-        else -> MalError("Cannot apply")
-    }
-}
-
-fun applyFunction2(list: MalList, env: Environment): MalType {
-    return when (val evaluatedList = evalAst(list, env)) {
-        is MalList -> {
-            when (val head = evaluatedList.head) {
-                is MalFunction ->
-                    head.apply(evaluatedList.tail)
-                is MalError ->
-                    MalError("Cannot apply (${head.message})")
-                else ->
-                    MalError("Not a function")
-            }
-        }
-        else -> MalError("Cannot apply")
-    }
-}
-
 fun quote(ast: MalList, env: Environment): MalType {
     return ast.getOrNull(0) ?: MalNil
 }
@@ -345,7 +214,15 @@ fun print(input: MalType, printReadably: Boolean = true) =
 
 fun re(input: String, env: Environment) = eval(read(input), env = env)
 fun rep(input: String, env: Environment) = print(re(input, env = env))
-val replExecutionEnv = Environment().apply { add(namespace) }
+val replExecutionEnv = Environment().apply {
+    add(namespace)
+    set(
+        Symbols.eval,
+        func { args ->
+            eval(args[0], this)
+        }
+    )
+}
 
 tailrec fun mainLoop() {
     out(prompt(), newLine = false)
@@ -358,7 +235,21 @@ tailrec fun mainLoop() {
     mainLoop()
 }
 
+val init = listOf(
+    """(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))""",
+)
+
 fun main(args: Array<String>) = when {
     args.contains("--runTests") -> runSuite()
-    else -> mainLoop()
+    else -> {
+        init.forEach { expression ->
+            when (val result = re(expression, replExecutionEnv)) {
+                is MalError -> {
+                    out("*** Init failed (${result.message})")
+                    exitProcess(1)
+                }
+            }
+        }
+        mainLoop()
+    }
 }

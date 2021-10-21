@@ -41,6 +41,7 @@ data class MalInteger(val value: Int) : MalType()
 data class MalBoolean(val value: Boolean) : MalType()
 data class MalString(val value: String) : MalType()
 data class MalKeyword(val name: String) : MalType()
+class MalAtom(var value: MalType) : MalType()
 object MalEOF : MalType()
 object MalNil : MalType()
 
@@ -52,6 +53,8 @@ fun list(vararg items: MalType): MalList = MalList(items.toMutableList())
 fun string(value: String) = MalString(value)
 fun int(value: Int) = MalInteger(value)
 fun emptyList() = MalList(items = mutableListOf())
+fun err(message: String) = MalError(message)
+fun atom(value: MalType) = MalAtom(value)
 
 typealias Arguments = Array<MalType>
 typealias FunctionBody = (args: Arguments) -> MalType

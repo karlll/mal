@@ -18,6 +18,7 @@ fun isEqual(a: MalType, b: MalType): Boolean {
         a is MalString && b is MalString -> a.value == b.value
         a is MalKeyword && b is MalKeyword -> a.name == b.name
         a is MalMap && b is MalMap -> false // FIXME: tbd
+        a is MalAtom && b is MalAtom -> isEqual(a.value, b.value)
         else -> false
     }
 }

@@ -58,7 +58,10 @@ fun printString(
             "#<fun>"
         }
         is MalFunctionContainer -> dbg {
-            "<function container>"
+            "#<function container>"
+        }
+        is MalAtom -> dbg {
+            printString(form.value, printReadably, quoted)
         }
     }
 }

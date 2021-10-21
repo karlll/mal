@@ -5,7 +5,7 @@ SOURCE_PATH=${MAKEFILE_PATH}src/main/kotlin/com/ninjacontrol/mal
 SOURCES=${SUPPORT:%.kt=${SOURCE_PATH}/%.kt}
 TEST_SOURCES=${TEST:%.kt=${SOURCE_PATH}/test/%.kt}
 BUILD_PATH=${MAKEFILE_PATH}build
-STEPS=step5_tco
+STEPS=step6_file
 
 %.jar: 
 	kotlinc ${SOURCE_PATH}/${@:%.jar=%.kt} ${SOURCES} ${TEST_SOURCES} -include-runtime -d ${BUILD_PATH}/${@}

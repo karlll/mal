@@ -1,7 +1,11 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
 import main.kotlin.com.ninjacontrol.mal.MalString
+import main.kotlin.com.ninjacontrol.mal.True
+import main.kotlin.com.ninjacontrol.mal.atom
+import main.kotlin.com.ninjacontrol.mal.err
 import main.kotlin.com.ninjacontrol.mal.int
+import main.kotlin.com.ninjacontrol.mal.list
 
 class NamespaceTest : TestSuite {
 
@@ -32,7 +36,48 @@ class NamespaceTest : TestSuite {
             description = "pr-str: 0 arguments returns empty string"
             input = """(pr-str)"""
             expectedAst = MalString("")
-        }
+        },
+        testReadEval {
+            description = "read-string: eval string"
+            input = """(read-string "(1 2 3)")"""
+            expectedAst = list(int(1), int(2), int(3))
+        },
+        testReadEval {
+            description = "slurp: invalid filename returns error"
+            input = """(slurp "this-does-not-exist")"""
+            expectedAst = err("File \"this-does-not-exist\" does not exist")
+        },
+        testReadEval {
+            description = "atom: create atom"
+            input = """(do (def! a (atom 43)) a)"""
+            expectedAst = atom(int(43))
+        },
+        testReadEval {
+            description = "atom: deref atom"
+            input = """(do (def! a (atom 42)) (deref a))"""
+            expectedAst = int(42)
+        },
+        testReadEval {
+            description = "atom: deref atom, shorthand"
+            input = """(do (def! a (atom 49)) @a)"""
+            expectedAst = int(49)
+        },
+        testReadEval {
+            description = "atom: is atom?"
+            input = """(do (def! a (atom 49)) (atom? a))"""
+            expectedAst = True
+        },
+        testReadEval {
+            description = "atom: reset value"
+            input = """(do (def! a (atom 49)) (reset! a 11))"""
+            expectedAst = int(11)
+        },
+        testReadEval {
+            description = "atom: swap atom"
+            input = """(do (def! a (atom 49)) (swap! a (fn* [x y] (+ x y)) 10) @a)"""
+            expectedAst = int(59)
+        },
+
     )
 
     override fun run(): Boolean =

@@ -1,5 +1,6 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
+import main.kotlin.com.ninjacontrol.mal.err
 import main.kotlin.com.ninjacontrol.mal.int
 import main.kotlin.com.ninjacontrol.mal.string
 
@@ -34,6 +35,11 @@ class EvaluationTest : TestSuite {
             description = "let*+do+def!: using outer environment"
             input = """(do (def! X 24) (let* (Y 12) (let* (Z 39) X)))"""
             expectedAst = int(24)
+        },
+        testReadEval {
+            description = "do: catch error while evaluating"
+            input = """(do (+ 1 2) badSymbol true)"""
+            expectedAst = err("Symbol 'badSymbol' not found")
         }
 
     )

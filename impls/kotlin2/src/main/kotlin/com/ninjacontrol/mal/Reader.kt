@@ -29,16 +29,30 @@ fun readForm(reader: Reader): MalType {
         '{' -> readMap(reader)
         ';' -> MalNil // comment
         '\'' -> readQuote(reader)
-        '`' -> readQuote(reader, symbol = MalSymbol(name = "quasiquote"))
-        '~' -> readQuote(reader, symbol = MalSymbol(name = "unquote"))
+        '`' -> readQuote(reader, symbol = symbol("quasiquote"))
+        '~' -> readQuote(reader, symbol = symbol("unquote"))
         null -> MalEOF
+        '@' -> readDerefForm(reader)
         else -> readAtom(reader)
     }
 }
 
-fun readQuote(reader: Reader, symbol: MalSymbol = MalSymbol(name = "quote")): MalType {
+fun readDerefForm(reader: Reader): MalType {
     reader.skip()
-    val list = MalList(mutableListOf(symbol))
+    val list = list(symbol("deref"))
+    return when (val form = readForm(reader)) {
+        is MalError -> form
+        is MalEOF -> MalError("Unexpected EOF")
+        else -> {
+            list.items.add(form)
+            list
+        }
+    }
+}
+
+fun readQuote(reader: Reader, symbol: MalSymbol = symbol("quote")): MalType {
+    reader.skip()
+    val list = list(symbol)
     return when (val form = readForm(reader)) {
         is MalError -> form
         is MalEOF -> MalError("Unexpected EOF")
@@ -114,11 +128,6 @@ fun readAtom(reader: Reader): MalType {
             Atoms.stringPattern.matches(atom) -> {
 
                 val (unescaped, error) = validateAndUnescape(atom)
-                /*
-                println("atom=$atom")
-                println("unescaped=$unescaped")
-                println("error=$error")
-                 */
                 when (error) {
                     null -> MalString(unquote(unescaped) ?: "")
                     else -> MalError(error.first)
