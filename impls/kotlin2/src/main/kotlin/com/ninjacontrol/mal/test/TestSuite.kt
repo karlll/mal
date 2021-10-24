@@ -20,6 +20,7 @@ interface TestSuite {
         if (newline) println(message) else print(message)
     }
 
+    fun getTests(): List<TestCase>
     fun verifyTests(testCases: List<TestCase>): Boolean {
         return testCases.map { testCase ->
             val context = testCase.description ?: "(no description)"
@@ -40,6 +41,7 @@ interface TestSuite {
 
 abstract class TestCase(var description: String? = null) {
     var verify: () -> Unit = { assertNeverExecuted() }
+    var only = false
 }
 
 class ReadEvalTestCase : TestCase() {
@@ -48,6 +50,12 @@ class ReadEvalTestCase : TestCase() {
 }
 
 class DefaultTestCase : TestCase()
+
+class CustomSuite(private val testCases: List<TestCase>) : TestSuite {
+    override val name = "Custom"
+    override fun getTests(): List<TestCase> = testCases
+    override fun run(): Boolean = verifyTests(testCases)
+}
 
 class AllTests : TestSuite {
 
@@ -61,8 +69,15 @@ class AllTests : TestSuite {
         FunctionsTest(),
     )
 
+    override fun getTests() = testSuites.flatMap { testSuite -> testSuite.getTests() }
+
     override fun run(): Boolean {
-        return testSuites.map { testSuite ->
+        val only = getTests().filter { it.only }
+        val suite = when {
+            only.isNotEmpty() -> listOf(CustomSuite(testCases = only))
+            else -> testSuites
+        }
+        return suite.map { testSuite ->
             log(testSuite.name)
             testSuite.run()
         }

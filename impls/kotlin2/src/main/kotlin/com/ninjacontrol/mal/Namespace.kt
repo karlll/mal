@@ -353,14 +353,17 @@ fun reset() = functionOfArity(2) { args ->
 fun swap() = functionOfAtLeastArity(2) { args ->
     when {
         (args[0] !is MalAtom) -> MalError("Argument is not an atom")
-        (args[1] !is MalFunctionContainer) -> MalError("Argument is not a function expression")
+        ((args[1] !is MalFunctionContainer) && (args[1] !is MalFunction)) -> MalError("Argument is not a function nor a function expression")
         else -> {
             val atom = args[0] as MalAtom
-            val swapFunction = args[1] as MalFunctionContainer
+            val swapFunction = when (args[1]) {
+                is MalFunctionContainer -> (args[1] as MalFunctionContainer).fn
+                else -> (args[1] as MalFunction)
+            }
             val additionalArgs =
                 if (args.size > 2) args.sliceArray(2 until args.size) else emptyArray()
             val swapFunctionArgs = list(atom.value, *additionalArgs)
-            when (val newValue = swapFunction.fn.apply(swapFunctionArgs)) {
+            when (val newValue = swapFunction.apply(swapFunctionArgs)) {
                 is MalError -> newValue
                 else -> {
                     atom.value = newValue

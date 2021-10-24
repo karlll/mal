@@ -162,7 +162,7 @@ class EnvironmentTest : TestSuite {
 
     )
 
-    override fun run(): Boolean {
-        return verifyTests(tests)
-    }
+    override fun getTests(): List<TestCase> = tests
+    override fun run(): Boolean =
+        verifyTests(tests)
 }

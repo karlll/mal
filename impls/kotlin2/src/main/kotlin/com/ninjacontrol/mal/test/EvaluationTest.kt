@@ -40,10 +40,16 @@ class EvaluationTest : TestSuite {
             description = "do: catch error while evaluating"
             input = """(do (+ 1 2) badSymbol true)"""
             expectedAst = err("Symbol 'badSymbol' not found")
+        },
+        testReadEval {
+            description = "def+let+fn: closures nests environments"
+            input = """(do (def! f (let* (x 10) (fn* () x))) (def! x 11) (f))"""
+            expectedAst = int(10)
         }
 
     )
 
+    override fun getTests(): List<TestCase> = tests
     override fun run(): Boolean =
         verifyTests(tests)
 }

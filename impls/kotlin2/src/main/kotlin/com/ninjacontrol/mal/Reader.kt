@@ -27,7 +27,10 @@ fun readForm(reader: Reader): MalType {
         '(' -> readList(reader)
         '[' -> readVector(reader)
         '{' -> readMap(reader)
-        ';' -> MalNil // comment
+        ';' -> {
+            reader.skip()
+            readForm(reader)
+        }
         '\'' -> readQuote(reader)
         '`' -> readQuote(reader, symbol = symbol("quasiquote"))
         '~' -> readQuote(reader, symbol = symbol("unquote"))
@@ -143,7 +146,7 @@ fun readAtom(reader: Reader): MalType {
 class Atoms {
     companion object {
         val integerPattern = "-?\\d+".toRegex()
-        val stringPattern = "\".*".toRegex()
+        val stringPattern = "\"[\\s\\S]*".toRegex()
         val keywordPattern = ":.+".toRegex()
         val booleanPattern = "true|false".toRegex()
     }

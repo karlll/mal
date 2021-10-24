@@ -38,7 +38,7 @@ fun eval(ast: MalType, env: Environment): MalType {
                         else {
                             when (
                                 val newEnv = Environment.withBindings(
-                                    outer = currentEnv,
+                                    outer = f.environment,
                                     bindings = params.items,
                                     expressions = evaluatedList.tail.items
                                 )
@@ -239,9 +239,33 @@ val init = listOf(
     """(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))""",
 )
 
-fun main(args: Array<String>) = when {
-    args.contains("--runTests") -> runSuite()
-    else -> {
+fun evaluateFileAndExit(file: String) {
+    val expression = "(load-file \"$file\")"
+    val result = re(expression, replExecutionEnv)
+    printString(result)
+    when (result) {
+        is MalError -> {
+            exitProcess(1)
+        }
+        else ->
+            exitProcess(0)
+    }
+}
+
+fun start(
+    file: String? = null,
+    withInit: Boolean = true,
+    runTests: Boolean = false,
+    args: Array<String>?
+) {
+    args?.let {
+        replExecutionEnv.set(
+            symbol("*ARGV*"),
+            // remove file argument from ARGV (args[0]) if we're going to evaluate a file
+            if (file == null) it.toMalList() else it.sliceArray(1 until it.size).toMalList()
+        )
+    }
+    if (withInit) {
         init.forEach { expression ->
             when (val result = re(expression, replExecutionEnv)) {
                 is MalError -> {
@@ -250,6 +274,32 @@ fun main(args: Array<String>) = when {
                 }
             }
         }
-        mainLoop()
+    }
+    when {
+        file != null -> evaluateFileAndExit(file)
+        runTests -> runSuite()
+        else -> mainLoop()
+    }
+}
+
+fun printHelp() {
+    out("Usage: krisp <file> <options>")
+    out("")
+    out("If present, load and evaluate file then quit, otherwise starts REPL.")
+    out("")
+    out("options:")
+    out("--skipInit\t\t\tDo not run init")
+    out("--runTests\t\t\tRun tests and quit")
+    out("--help|-h\t\t\t\tPrint help and quit")
+}
+
+fun main(args: Array<String>) {
+    val file = args.getOrNull(0)?.let { if (it.startsWith("-")) null else it }
+    val withInit = !args.contains("--skipInit")
+    val runTests = args.contains("--runTests")
+    val printHelp = args.contains("--help") || args.contains("-h")
+    when {
+        printHelp -> printHelp()
+        else -> start(file, withInit, runTests, args)
     }
 }

@@ -61,7 +61,7 @@ fun printString(
             "#<function container>"
         }
         is MalAtom -> dbg {
-            printString(form.value, printReadably, quoted)
+            "(atom ${printString(form.value, printReadably, quoted)})"
         }
     }
 }

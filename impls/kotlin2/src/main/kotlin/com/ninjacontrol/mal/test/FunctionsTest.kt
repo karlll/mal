@@ -42,6 +42,7 @@ class FunctionsTest : TestSuite {
         }
     )
 
+    override fun getTests(): List<TestCase> = tests
     override fun run(): Boolean =
         verifyTests(tests)
 }

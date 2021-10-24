@@ -6,6 +6,7 @@ import main.kotlin.com.ninjacontrol.mal.atom
 import main.kotlin.com.ninjacontrol.mal.err
 import main.kotlin.com.ninjacontrol.mal.int
 import main.kotlin.com.ninjacontrol.mal.list
+import main.kotlin.com.ninjacontrol.mal.string
 
 class NamespaceTest : TestSuite {
 
@@ -77,9 +78,20 @@ class NamespaceTest : TestSuite {
             input = """(do (def! a (atom 49)) (swap! a (fn* [x y] (+ x y)) 10) @a)"""
             expectedAst = int(59)
         },
+        testReadEval {
+            description = "read-string: read string w. newline"
+            input = """(read-string "\"\n\"")"""
+            expectedAst = string("\n")
+        },
+        testReadEval {
+            description = "atom: closures retains atoms"
+            input = """(do (def! f (let* (a (atom 2)) (fn* () (deref a)))) (def! a (atom 3)) (f))"""
+            expectedAst = int(2)
+        }
 
     )
 
+    override fun getTests(): List<TestCase> = tests
     override fun run(): Boolean =
         verifyTests(tests)
 }

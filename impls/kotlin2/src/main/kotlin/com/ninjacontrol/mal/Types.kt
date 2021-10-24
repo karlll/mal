@@ -55,6 +55,7 @@ fun int(value: Int) = MalInteger(value)
 fun emptyList() = MalList(items = mutableListOf())
 fun err(message: String) = MalError(message)
 fun atom(value: MalType) = MalAtom(value)
+fun Array<String>.toMalList() = MalList(this.map { str -> MalString(str) }.toMutableList())
 
 typealias Arguments = Array<MalType>
 typealias FunctionBody = (args: Arguments) -> MalType
