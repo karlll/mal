@@ -194,7 +194,7 @@ fun let(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
     }
 }
 
-fun quote(ast: MalList, env: Environment): MalType {
+fun quote(ast: MalList, _env: Environment): MalType {
     return ast.getOrNull(0) ?: MalNil
 }
 

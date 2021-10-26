@@ -67,6 +67,7 @@ class AllTests : TestSuite {
         StringTest(),
         EvaluationTest(),
         FunctionsTest(),
+        QuoteTest()
     )
 
     override fun getTests() = testSuites.flatMap { testSuite -> testSuite.getTests() }

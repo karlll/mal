@@ -31,7 +31,9 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("deref") to deref(),
     symbol("atom?") to `atom?`(),
     symbol("reset!") to reset(),
-    symbol("swap!") to swap()
+    symbol("swap!") to swap(),
+    symbol("cons") to cons(),
+    symbol("concat") to concat()
 )
 
 fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
@@ -272,6 +274,17 @@ fun tail() = functionOfArity(1) { args ->
         is MalList -> arg.tail
         else -> MalError("Argument is not a list")
     }
+}
+
+fun cons() = functionOfArity(2) { args ->
+    when (val arg = args[1]) {
+        is MalList -> arg.cons(args[0])
+        else -> MalError("Argument is not a list")
+    }
+}
+
+fun concat() = typedArgumentFunction<MalList> { args ->
+    MalList(args.flatMap { (it as MalList).items }.toMutableList())
 }
 
 /* Arithmetic functions */

@@ -19,6 +19,7 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
     }
 
     fun subList(fromIndex: Int, toIndex: Int) = MalList(items.subList(fromIndex, toIndex))
+    fun cons(item: MalType): MalList = MalList(mutableListOf(item).apply { addAll(items) })
 }
 
 data class MalVector(val items: MutableList<MalType>) : MalType() {
@@ -33,6 +34,7 @@ fun MalList.asTupleList(): List<List<MalType>> =
 
 fun MalList.asVector(): MalVector = MalVector(items = items)
 fun MalVector.asList(): MalList = MalList(items = items)
+// fun concat(vararg lists: MalList) = MalList(lists.flatMap { it.items }.toMutableList())
 
 data class MalMap(val items: MutableMap<MalType, MalType>) : MalType()
 data class MalError(val message: String) : MalType()

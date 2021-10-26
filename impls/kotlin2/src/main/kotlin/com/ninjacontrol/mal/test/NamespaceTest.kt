@@ -87,7 +87,18 @@ class NamespaceTest : TestSuite {
             description = "atom: closures retains atoms"
             input = """(do (def! f (let* (a (atom 2)) (fn* () (deref a)))) (def! a (atom 3)) (f))"""
             expectedAst = int(2)
-        }
+        },
+        testReadEval {
+            description = "cons: returns list with new element prepended"
+            input = """(cons 0 '(1 2 3 4))"""
+            expectedAst = list(int(0), int(1), int(2), int(3), int(4))
+        },
+        testReadEval {
+            description = "concat: returns concatenated list"
+            input = """(concat '(1 2) '(3 4) '(5 6) '(7 8))"""
+            expectedAst = list(int(1), int(2), int(3), int(4), int(5), int(6), int(7), int(8))
+            only = true
+        },
 
     )
 
