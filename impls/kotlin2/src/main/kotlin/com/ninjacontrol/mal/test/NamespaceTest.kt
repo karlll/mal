@@ -97,7 +97,6 @@ class NamespaceTest : TestSuite {
             description = "concat: returns concatenated list"
             input = """(concat '(1 2) '(3 4) '(5 6) '(7 8))"""
             expectedAst = list(int(1), int(2), int(3), int(4), int(5), int(6), int(7), int(8))
-            only = true
         },
 
     )

@@ -34,6 +34,16 @@ class QuoteTest : TestSuite {
             description = "quasiquote: quoted"
             input = """(do (def! l '(i j)) (quasiquote (x l y)))"""
             expectedAst = list(symbol("x"), symbol("l"), symbol("y"))
+        },
+        testReadEval {
+            description = "quasiquote: unquoted"
+            input = """(do (def! ulon '(i j)) (quasiquote (x (unquote ulon) y)))"""
+            expectedAst = list(symbol("x"), list(symbol("i"), symbol("j")), symbol("y"))
+        },
+        testReadEval {
+            description = "quasiquote: splice-unquoted"
+            input = """(do (def! ulon '(i j)) (quasiquote (x (splice-unquote ulon) y)))"""
+            expectedAst = list(symbol("x"), symbol("i"), symbol("j"), symbol("y"))
         }
 
     )

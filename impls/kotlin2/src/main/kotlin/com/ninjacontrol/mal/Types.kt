@@ -14,8 +14,15 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
     fun isEmpty() = items.isEmpty()
     fun getOrNull(index: Int) = items.getOrNull(index)
     fun get(index: Int) = items[index]
-    fun forEach(function: (MalType) -> Unit) {
-        items.forEach(function)
+    fun forEach(reversed: Boolean = false, function: (MalType) -> Unit) {
+        when (reversed) {
+            true -> items.forEach(function)
+            else -> items.reversed().forEach(function)
+        }
+    }
+
+    operator fun iterator(): Iterator<MalType> {
+        return items.iterator()
     }
 
     fun subList(fromIndex: Int, toIndex: Int) = MalList(items.subList(fromIndex, toIndex))
@@ -34,7 +41,6 @@ fun MalList.asTupleList(): List<List<MalType>> =
 
 fun MalList.asVector(): MalVector = MalVector(items = items)
 fun MalVector.asList(): MalList = MalList(items = items)
-// fun concat(vararg lists: MalList) = MalList(lists.flatMap { it.items }.toMutableList())
 
 data class MalMap(val items: MutableMap<MalType, MalType>) : MalType()
 data class MalError(val message: String) : MalType()

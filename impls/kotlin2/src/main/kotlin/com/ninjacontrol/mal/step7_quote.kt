@@ -12,7 +12,13 @@ object Symbols {
     val `if` = MalSymbol("if")
     val fn = MalSymbol("fn*")
     val quote = MalSymbol("quote")
+    val quasiquote = MalSymbol("quasiquote")
+    val quasiquoteexpand = MalSymbol("quasiquoteexpand")
+    val unquote = MalSymbol("unquote")
     val eval = MalSymbol("eval")
+    val `splice-unquote` = MalSymbol("splice-unquote")
+    val concat = MalSymbol("concat")
+    val cons = MalSymbol("cons")
 }
 
 fun eval(ast: MalType, env: Environment): MalType {
@@ -82,6 +88,8 @@ fun eval(ast: MalType, env: Environment): MalType {
             head eq Symbols.`if` -> nextAst = `if`(currentAst.tail, currentEnv)
             head eq Symbols.fn -> nextAst = fn(currentAst.tail, currentEnv)
             head eq Symbols.quote -> return quote(currentAst.tail, currentEnv)
+            head eq Symbols.quasiquoteexpand -> return quasiquote(currentAst.tail, currentEnv)
+            head eq Symbols.quasiquote -> nextAst = quasiquote(currentAst.tail, currentEnv)
             else -> apply()?.let {
                 return it
             }
@@ -196,6 +204,34 @@ fun let(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
 
 fun quote(ast: MalList, _env: Environment): MalType {
     return ast.getOrNull(0) ?: MalNil
+}
+
+fun quasiquote(ast: MalList, _env: Environment): MalType {
+    return when {
+        ast.isEmpty() -> ast
+        ast.head eq Symbols.unquote -> ast.getOrNull(1) ?: MalError("Invalid arguments")
+        ast.head is MalList -> {
+            val astList = ast.head as MalList
+            var result = emptyList()
+            for (element in astList.items.asReversed()) {
+                result = when {
+                    element is MalList && element.head eq Symbols.`splice-unquote` -> {
+                        if (element.size < 2) return MalError("Invalid number of arguments")
+                        list(Symbols.concat, element.get(1), result)
+                    }
+                    else -> {
+                        val newAst = if (element is MalList) element else list(element)
+                        list(Symbols.cons, quasiquote(newAst, _env), result)
+                    }
+                }
+            }
+            result
+        }
+        ast.head is MalMap || ast.head is MalSymbol -> {
+            list(Symbols.quote, ast.head)
+        }
+        else -> ast
+    }
 }
 
 fun evalAst(ast: MalType, env: Environment): MalType = when (ast) {
