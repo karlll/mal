@@ -222,9 +222,11 @@ fun quasiquote(ast: MalType, _env: Environment): MalType {
     return when {
         ast is MalList && ast.head eq Symbols.unquote -> ast.getOrNull(1)
             ?: MalError("Invalid arguments")
-        ast is MalList -> {
+        ast is MalList || ast is MalVector -> {
             var result = emptyList()
-            for (element in ast.items.asReversed()) {
+            val elements =
+                if (ast is MalList) ast.items.asReversed() else (ast as MalVector).items.asReversed()
+            for (element in elements) {
                 result = when {
                     element is MalList && element.head eq Symbols.`splice-unquote` -> {
                         if (element.size < 2) return MalError("Invalid number of arguments")
@@ -235,22 +237,7 @@ fun quasiquote(ast: MalType, _env: Environment): MalType {
                     }
                 }
             }
-            result
-        }
-        ast is MalVector -> {
-            var result = emptyList()
-            for (element in ast.items.asReversed()) {
-                result = when {
-                    element is MalList && element.head eq Symbols.`splice-unquote` -> {
-                        if (element.size < 2) return MalError("Invalid number of arguments")
-                        list(Symbols.concat, element.get(1), result)
-                    }
-                    else -> {
-                        list(Symbols.cons, quasiquote(element, _env), result)
-                    }
-                }
-            }
-            list(Symbols.vec, result)
+            if (ast is MalVector) list(Symbols.vec, result) else result
         }
         ast is MalMap || ast is MalSymbol -> {
             list(Symbols.quote, ast)
