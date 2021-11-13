@@ -44,6 +44,22 @@ class QuoteTest : TestSuite {
             description = "quasiquote: splice-unquoted"
             input = """(do (def! ulon '(i j)) (quasiquote (x (splice-unquote ulon) y)))"""
             expectedAst = list(symbol("x"), symbol("i"), symbol("j"), symbol("y"))
+        },
+        testReadEval {
+            description = "quasiquote: splice-unquoted, shorthand"
+            input = """(do (def! ulon '(i j)) `(x ~@ulon y))"""
+            expectedAst = list(symbol("x"), symbol("i"), symbol("j"), symbol("y"))
+            only = true
+        },
+        testReadEval {
+            description = "quasiquote: shorthand"
+            input = """`7"""
+            expectedAst = int(7)
+        },
+        testReadEval {
+            description = "quasiquote: nested list"
+            input = """(quasiquote (1 2 (3 4)))"""
+            expectedAst = list(int(1), int(2), list(int(3), int(4)))
         }
 
     )

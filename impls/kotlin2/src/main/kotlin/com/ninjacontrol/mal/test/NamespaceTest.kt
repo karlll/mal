@@ -94,10 +94,25 @@ class NamespaceTest : TestSuite {
             expectedAst = list(int(0), int(1), int(2), int(3), int(4))
         },
         testReadEval {
+            description = "cons: vector as second argument"
+            input = """(cons 0 [1 2 3 4])"""
+            expectedAst = list(int(0), int(1), int(2), int(3), int(4))
+        },
+        testReadEval {
             description = "concat: returns concatenated list"
             input = """(concat '(1 2) '(3 4) '(5 6) '(7 8))"""
             expectedAst = list(int(1), int(2), int(3), int(4), int(5), int(6), int(7), int(8))
         },
+        testReadEval {
+            description = "concat: vector parameter should return list"
+            input = """(concat [99 98])"""
+            expectedAst = list(int(99), int(98))
+        },
+        testReadEval {
+            description = "concat: vector + list + vector"
+            input = """(concat [99 98] (list 97 96) [95 94])"""
+            expectedAst = list(int(99), int(98), int(97), int(96), int(95), int(94))
+        }
 
     )
 

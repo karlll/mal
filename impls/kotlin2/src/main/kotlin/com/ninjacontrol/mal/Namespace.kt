@@ -33,7 +33,8 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("reset!") to reset(),
     symbol("swap!") to swap(),
     symbol("cons") to cons(),
-    symbol("concat") to concat()
+    symbol("concat") to concat(),
+    symbol("vec") to vec()
 )
 
 fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
@@ -51,8 +52,11 @@ fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBod
         function.invoke(args)
     }
 
-inline fun <reified T> assertArgumentType(args: Arguments) = args.all { arg -> arg is T }
-inline fun <reified T> assertArgumentNotType(args: Arguments) = args.none { arg -> arg is T }
+inline fun <reified T> isArgumentType(args: Arguments) = args.all { arg -> arg is T }
+inline fun <reified T, reified U> isArgumentEitherType(args: Arguments) =
+    args.all { arg -> arg is T || arg is U }
+
+inline fun <reified T> isArgumentNotType(args: Arguments) = args.none { arg -> arg is T }
 fun assertNumberOfArguments(args: Arguments, amount: Int) = args.size == amount
 fun assertNumberOfArgumentsOrMore(args: Arguments, amount: Int) = args.size >= amount
 
@@ -97,7 +101,7 @@ inline fun <reified T> typedArgumentFunction(
                     minArity
                 )
                 ) -> MalError("Invalid number of arguments, expected at least $minArity arguments, got ${args.size}.")
-            !assertArgumentType<T>(args) -> MalError("Invalid argument type, ${T::class} expected")
+            !isArgumentType<T>(args) -> MalError("Invalid argument type, ${T::class} expected")
             else -> null
         }
     }
@@ -107,7 +111,7 @@ inline fun <reified T> typedArgumentFunction(
 
 fun integerFunction(function: FunctionBody): MalFunction = func(
     precondition = { args ->
-        if (!assertArgumentType<MalInteger>(args)) {
+        if (!isArgumentType<MalInteger>(args)) {
             MalError("Invalid argument type, expected an integer")
         } else null
     }
@@ -119,7 +123,7 @@ fun integerFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
     precondition = { args ->
         when {
             args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            !assertArgumentType<MalInteger>(args) -> MalError("Invalid argument type, expected an integer")
+            !isArgumentType<MalInteger>(args) -> MalError("Invalid argument type, expected an integer")
             else -> null
         }
     }
@@ -131,7 +135,7 @@ fun stringFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
     precondition = { args ->
         when {
             args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            !assertArgumentType<MalString>(args) -> MalError("Invalid argument type, expected a string")
+            !isArgumentType<MalString>(args) -> MalError("Invalid argument type, expected a string")
             else -> null
         }
     }
@@ -279,12 +283,32 @@ fun tail() = functionOfArity(1) { args ->
 fun cons() = functionOfArity(2) { args ->
     when (val arg = args[1]) {
         is MalList -> arg.cons(args[0])
-        else -> MalError("Argument is not a list")
+        is MalVector -> MalList(arg.items).run { cons(args[0]) }
+        else -> MalError("Argument is not a list nor a vector")
     }
 }
 
-fun concat() = typedArgumentFunction<MalList> { args ->
-    MalList(args.flatMap { (it as MalList).items }.toMutableList())
+fun concat() = func { args ->
+    when (isArgumentEitherType<MalList, MalVector>(args)) {
+        true -> MalList(
+            args.flatMap {
+                when (it) {
+                    is MalVector -> it.items
+                    else -> (it as MalList).items
+                }
+            }.toMutableList()
+        )
+        else -> MalError("Argument is not a list nor a vector")
+    }
+}
+/* Vectors */
+
+fun vec() = functionOfArity(1) { args ->
+    when (val arg = args[0]) {
+        is MalList -> MalVector(items = arg.items)
+        is MalVector -> arg
+        else -> MalError("Argument is not a list nor a vector")
+    }
 }
 
 /* Arithmetic functions */

@@ -33,9 +33,13 @@ fun readForm(reader: Reader): MalType {
         }
         '\'' -> readQuote(reader)
         '`' -> readQuote(reader, symbol = symbol("quasiquote"))
-        '~' -> readQuote(reader, symbol = symbol("unquote"))
-        null -> MalEOF
+        '~' ->
+            if (reader.peek()?.let { it.getOrNull(1) == '@' } == true) {
+                readQuote(reader, symbol = symbol("splice-unquote"))
+            } else
+                readQuote(reader, symbol = symbol("unquote"))
         '@' -> readDerefForm(reader)
+        null -> MalEOF
         else -> readAtom(reader)
     }
 }
