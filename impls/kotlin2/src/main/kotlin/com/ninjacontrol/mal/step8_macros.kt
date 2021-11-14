@@ -20,6 +20,8 @@ object Symbols {
     val concat = MalSymbol("concat")
     val cons = MalSymbol("cons")
     val vec = MalSymbol("vec")
+    val defMacro = MalSymbol("defmacro!")
+    val macroExpand = MalSymbol("macroexpand")
 }
 
 fun eval(ast: MalType, env: Environment): MalType {
@@ -72,6 +74,9 @@ fun eval(ast: MalType, env: Environment): MalType {
     }
     while (true) {
         if (currentAst !is MalList) return evalAst(currentAst, currentEnv)
+        currentAst = macroExpand(currentAst, currentEnv)
+        // check resulting AST again after macro expansion
+        if (currentAst !is MalList) return evalAst(currentAst, currentEnv)
         if (currentAst.isEmpty()) return currentAst
         val head = currentAst.head
 
@@ -96,6 +101,11 @@ fun eval(ast: MalType, env: Environment): MalType {
             head eq Symbols.quasiquote ->
                 nextAst =
                     quasiquote(unwrapSingle(currentAst.tail), currentEnv)
+            head eq Symbols.defMacro -> return defMacro(currentAst.tail, currentEnv)
+            head eq Symbols.macroExpand -> return macroExpand(
+                unwrapSingle(currentAst.tail),
+                currentEnv
+            )
             else -> apply()?.let {
                 return it
             }
@@ -153,6 +163,54 @@ fun `do`(expressions: MalList, env: Environment): MalType {
     if (expressions.isEmpty()) return MalNil
     evalAst(expressions.subList(0, expressions.size), env)
     return expressions.last
+}
+
+fun macroExpand(ast: MalType, env: Environment): MalType {
+    var currentAst = ast
+    while (isMacroCall(currentAst, env)) {
+        // isMacroCall ensures that the ast has the following content
+        val astList = ast as MalList
+        val symbol = astList.head as MalSymbol
+        val functionContainer = env.get(symbol)
+        val function = (functionContainer as MalFunctionContainer).fn
+        val arguments = astList.tail
+        currentAst = function.apply(arguments)
+    }
+    return currentAst
+}
+
+fun isMacroCall(ast: MalType, env: Environment) = when {
+    ast is MalList && ast.head is MalSymbol -> {
+        val symbol = ast.head as MalSymbol
+        when (val value = env.get(symbol)) {
+            is MalFunctionContainer -> value.isMacro
+            else -> false
+        }
+    }
+    else -> false
+}
+
+fun defMacro(bindingList: MalList, env: Environment): MalType {
+    return when (bindingList.size) {
+        2 -> {
+            when (val name = bindingList.get(0)) {
+                is MalSymbol -> {
+                    when (val value = eval(bindingList.get(1), env)) {
+                        is MalError -> MalError("Could not define symbol '${name.name}' (${value.message})")
+                        is MalFunctionContainer -> {
+                            val newValue = value.copy(isMacro = true)
+                            env.set(name, newValue)
+                        }
+                        else -> env.set(name, value)
+                    }
+                }
+                else -> {
+                    MalError("Invalid argument (symbol)")
+                }
+            }
+        }
+        else -> MalError("Invalid arguments")
+    }
 }
 
 fun define(bindingList: MalList, env: Environment): MalType {
@@ -285,6 +343,7 @@ tailrec fun mainLoop() {
 
 val init = listOf(
     """(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))""",
+    """(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))"""
 )
 
 fun evaluateFileAndExit(file: String) {

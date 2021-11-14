@@ -16,8 +16,9 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("list") to list(),
     symbol("list?") to `list?`(),
     symbol("empty?") to `empty?`(),
-    symbol("head") to head(),
-    symbol("tail") to tail(),
+    symbol("first") to first(),
+    symbol("rest") to rest(),
+    symbol("nth") to nth(),
     symbol("count") to count(),
     symbol("=") to eq(),
     symbol(">") to gt(),
@@ -34,7 +35,8 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("swap!") to swap(),
     symbol("cons") to cons(),
     symbol("concat") to concat(),
-    symbol("vec") to vec()
+    symbol("vec") to vec(),
+    symbol("throw") to `throw`()
 )
 
 fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
@@ -266,17 +268,50 @@ fun count() = functionOfArity(1) { args ->
     }
 }
 
-fun head() = functionOfArity(1) { args ->
+fun first() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
-        is MalList -> arg.head
+        is MalNil -> MalNil
+        is MalList, is MalVector -> {
+            when (arg) {
+                is MalVector -> if (arg.isEmpty()) MalNil else arg.items[0]
+                else -> if ((arg as MalList).isEmpty()) MalNil else arg.head
+            }
+        }
         else -> MalError("Argument is not a list")
     }
 }
 
-fun tail() = functionOfArity(1) { args ->
+fun rest() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
-        is MalList -> arg.tail
-        else -> MalError("Argument is not a list")
+        is MalNil -> emptyList()
+        is MalList, is MalVector -> {
+            when (arg) {
+                is MalVector -> if (arg.isEmpty()) emptyList() else MalList(
+                    items = arg.items.drop(1).toMutableList()
+                )
+                else -> if ((arg as MalList).isEmpty()) emptyList() else arg.tail
+            }
+        }
+        else -> MalError("Argument is not a list nor a vector")
+    }
+}
+
+fun nth() = functionOfArity(2) { args ->
+    when {
+        (args[0] !is MalList && args[0] !is MalVector) -> MalError("Argument is not a list nor a vector")
+        (args[1] !is MalInteger) -> MalError("Argument is not an integer")
+
+        else -> {
+            val index = (args[1] as MalInteger).value
+            when {
+                args[0] is MalList -> {
+                    (args[0] as MalList).items.getOrNull(index) ?: MalError("Index out of bounds")
+                }
+                else -> {
+                    (args[0] as MalVector).items.getOrNull(index) ?: MalError("Index out of bounds")
+                }
+            }
+        }
     }
 }
 
@@ -409,4 +444,10 @@ fun swap() = functionOfAtLeastArity(2) { args ->
             }
         }
     }
+}
+
+/* Exceptions */
+
+fun `throw`() = func { args ->
+    MalError("Exception")
 }

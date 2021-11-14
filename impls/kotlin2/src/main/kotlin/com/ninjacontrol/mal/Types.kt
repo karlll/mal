@@ -87,7 +87,8 @@ data class MalFunctionContainer(
     val ast: MalType,
     val params: MalType,
     val environment: Environment,
-    val fn: MalFunction
+    val isMacro: Boolean = false,
+    val fn: MalFunction,
 ) : MalType()
 
 operator fun MalInteger.plus(other: MalInteger): MalInteger = MalInteger(value + other.value)
