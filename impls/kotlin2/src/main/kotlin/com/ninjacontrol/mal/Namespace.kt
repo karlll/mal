@@ -39,18 +39,9 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("throw") to `throw`()
 )
 
-fun func(precondition: ((Arguments) -> MalError?)? = null, function: FunctionBody): MalFunction =
+fun func(precondition: ((Arguments) -> Unit)? = null, function: FunctionBody): MalFunction =
     MalFunction { args ->
-        // Do not allow argument that was evaluated as errors
-        args.firstOrNull { it is MalError }?.let { error ->
-            return@MalFunction error
-        }
-
-        if (precondition != null) {
-            when (val preconditionResult = precondition.invoke(args)) {
-                is MalError -> return@MalFunction preconditionResult
-            }
-        }
+        precondition?.invoke(args)
         function.invoke(args)
     }
 
@@ -66,8 +57,8 @@ fun functionOfArity(n: Int, function: FunctionBody): MalFunction =
     func(
         precondition = { args ->
             if (!assertNumberOfArguments(args, n)) {
-                MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            } else null
+                throw InvalidArgumentException("Invalid number of arguments, expected $n instead of ${args.size}.")
+            }
         }
     ) { args ->
         function.invoke(args)
@@ -77,8 +68,8 @@ fun functionOfAtLeastArity(n: Int, function: FunctionBody): MalFunction =
     func(
         precondition = { args ->
             if (!assertNumberOfArgumentsOrMore(args, n)) {
-                MalError("Invalid number of arguments, expected at least $n arguments, got ${args.size}.")
-            } else null
+                throw InvalidArgumentException("Invalid number of arguments, expected at least $n arguments, got ${args.size}.")
+            }
         }
     ) { args ->
         function.invoke(args)
@@ -96,15 +87,14 @@ inline fun <reified T> typedArgumentFunction(
                     args,
                     arity
                 )
-                ) -> MalError("Invalid number of arguments, expected $arity arguments, got ${args.size}.")
+                ) -> throw InvalidArgumentException("Invalid number of arguments, expected $arity arguments, got ${args.size}.")
             (
                 minArity > 0 && !assertNumberOfArgumentsOrMore(
                     args,
                     minArity
                 )
-                ) -> MalError("Invalid number of arguments, expected at least $minArity arguments, got ${args.size}.")
-            !isArgumentType<T>(args) -> MalError("Invalid argument type, ${T::class} expected")
-            else -> null
+                ) -> throw InvalidArgumentException("Invalid number of arguments, expected at least $minArity arguments, got ${args.size}.")
+            !isArgumentType<T>(args) -> throw InvalidArgumentException("Invalid argument type, ${T::class} expected")
         }
     }
 ) { args ->
@@ -114,8 +104,8 @@ inline fun <reified T> typedArgumentFunction(
 fun integerFunction(function: FunctionBody): MalFunction = func(
     precondition = { args ->
         if (!isArgumentType<MalInteger>(args)) {
-            MalError("Invalid argument type, expected an integer")
-        } else null
+            throw InvalidArgumentException("Invalid argument type, expected an integer")
+        }
     }
 ) { args ->
     function.invoke(args)
@@ -124,9 +114,8 @@ fun integerFunction(function: FunctionBody): MalFunction = func(
 fun integerFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
     precondition = { args ->
         when {
-            args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            !isArgumentType<MalInteger>(args) -> MalError("Invalid argument type, expected an integer")
-            else -> null
+            args.size != n -> throw InvalidArgumentException("Invalid number of arguments, expected $n instead of ${args.size}.")
+            !isArgumentType<MalInteger>(args) -> throw InvalidArgumentException("Invalid argument type, expected an integer")
         }
     }
 ) { args ->
@@ -136,9 +125,8 @@ fun integerFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
 fun stringFunctionOfArity(n: Int, function: FunctionBody): MalFunction = func(
     precondition = { args ->
         when {
-            args.size != n -> MalError("Invalid number of arguments, expected $n instead of ${args.size}.")
-            !isArgumentType<MalString>(args) -> MalError("Invalid argument type, expected a string")
-            else -> null
+            args.size != n -> throw InvalidArgumentException("Invalid number of arguments, expected $n instead of ${args.size}.")
+            !isArgumentType<MalString>(args) -> throw InvalidArgumentException("Invalid argument type, expected a string")
         }
     }
 ) { args ->
@@ -255,7 +243,7 @@ fun `empty?`() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
         is MalList -> if (arg.isEmpty()) True else False
         is MalVector -> if (arg.isEmpty()) True else False
-        else -> MalError("Argument is not a list")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 
@@ -264,7 +252,7 @@ fun count() = functionOfArity(1) { args ->
         is MalNil -> MalInteger(0)
         is MalList -> MalInteger(arg.size)
         is MalVector -> MalInteger(arg.size)
-        else -> MalError("Argument is not a list nor a vector")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 
@@ -277,7 +265,7 @@ fun first() = functionOfArity(1) { args ->
                 else -> if ((arg as MalList).isEmpty()) MalNil else arg.head
             }
         }
-        else -> MalError("Argument is not a list")
+        else -> throw InvalidArgumentException("Argument is not a list")
     }
 }
 
@@ -292,23 +280,25 @@ fun rest() = functionOfArity(1) { args ->
                 else -> if ((arg as MalList).isEmpty()) emptyList() else arg.tail
             }
         }
-        else -> MalError("Argument is not a list nor a vector")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 
 fun nth() = functionOfArity(2) { args ->
     when {
-        (args[0] !is MalList && args[0] !is MalVector) -> MalError("Argument is not a list nor a vector")
-        (args[1] !is MalInteger) -> MalError("Argument is not an integer")
+        (args[0] !is MalList && args[0] !is MalVector) -> throw InvalidArgumentException("Argument is not a list nor a vector")
+        (args[1] !is MalInteger) -> throw InvalidArgumentException("Argument is not an integer")
 
         else -> {
             val index = (args[1] as MalInteger).value
             when {
                 args[0] is MalList -> {
-                    (args[0] as MalList).items.getOrNull(index) ?: MalError("Index out of bounds")
+                    (args[0] as MalList).items.getOrNull(index)
+                        ?: throw OutOfBoundsException("Index out of bounds")
                 }
                 else -> {
-                    (args[0] as MalVector).items.getOrNull(index) ?: MalError("Index out of bounds")
+                    (args[0] as MalVector).items.getOrNull(index)
+                        ?: throw OutOfBoundsException("Index out of bounds")
                 }
             }
         }
@@ -319,7 +309,7 @@ fun cons() = functionOfArity(2) { args ->
     when (val arg = args[1]) {
         is MalList -> arg.cons(args[0])
         is MalVector -> MalList(arg.items).run { cons(args[0]) }
-        else -> MalError("Argument is not a list nor a vector")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 
@@ -333,7 +323,7 @@ fun concat() = func { args ->
                 }
             }.toMutableList()
         )
-        else -> MalError("Argument is not a list nor a vector")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 /* Vectors */
@@ -342,7 +332,7 @@ fun vec() = functionOfArity(1) { args ->
     when (val arg = args[0]) {
         is MalList -> MalVector(items = arg.items)
         is MalVector -> arg
-        else -> MalError("Argument is not a list nor a vector")
+        else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
 
@@ -360,7 +350,7 @@ fun arithmeticFunction(operation: ArithmeticOperation) = integerFunction { args 
     if (operation == ArithmeticOperation.Divide && args.drop(1)
         .any { (it as MalInteger).isZero }
     ) {
-        return@integerFunction MalError("Division by zero")
+        throw ArithmeticException("Division by zero")
     }
     args.reduce { acc, arg ->
         val op1 = acc as MalInteger
@@ -389,9 +379,9 @@ fun slurp() = stringFunctionOfArity(1) { args ->
 fun readFileAsString(fileName: String, charSet: Charset): MalType {
     val file = File(fileName)
     return when {
-        !file.exists() -> MalError("File \"$fileName\" does not exist")
-        !file.canRead() -> MalError("Can not read \"$fileName\"")
-        file.length() > ((2L * 1024 * 1024 * 1024) - 1) -> MalError("File is too large")
+        !file.exists() -> throw IOException("File \"$fileName\" does not exist")
+        !file.canRead() -> throw IOException("Can not read \"$fileName\"")
+        file.length() > ((2L * 1024 * 1024 * 1024) - 1) -> throw IOException("File is too large")
         else -> MalString(file.readText(charSet))
     }
 }
@@ -413,7 +403,7 @@ fun `atom?`() = functionOfArity(1) { args ->
 
 fun reset() = functionOfArity(2) { args ->
     when {
-        (args[0] !is MalAtom) -> MalError("Not an atom")
+        (args[0] !is MalAtom) -> throw InvalidArgumentException("Not an atom")
         else -> {
             val atom = args[0] as MalAtom
             atom.value = args[1]
@@ -424,8 +414,10 @@ fun reset() = functionOfArity(2) { args ->
 
 fun swap() = functionOfAtLeastArity(2) { args ->
     when {
-        (args[0] !is MalAtom) -> MalError("Argument is not an atom")
-        ((args[1] !is MalFunctionContainer) && (args[1] !is MalFunction)) -> MalError("Argument is not a function nor a function expression")
+        (args[0] !is MalAtom) -> throw InvalidArgumentException("Argument is not an atom")
+        ((args[1] !is MalFunctionContainer) && (args[1] !is MalFunction)) -> throw InvalidArgumentException(
+            "Argument is not a function nor a function expression"
+        )
         else -> {
             val atom = args[0] as MalAtom
             val swapFunction = when (args[1]) {
@@ -449,5 +441,5 @@ fun swap() = functionOfAtLeastArity(2) { args ->
 /* Exceptions */
 
 fun `throw`() = func { args ->
-    MalError("Exception")
+    throw UserException("Exception")
 }

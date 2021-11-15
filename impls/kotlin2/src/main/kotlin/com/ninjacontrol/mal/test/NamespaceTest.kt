@@ -1,9 +1,9 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
+import main.kotlin.com.ninjacontrol.mal.IOException
 import main.kotlin.com.ninjacontrol.mal.MalString
 import main.kotlin.com.ninjacontrol.mal.True
 import main.kotlin.com.ninjacontrol.mal.atom
-import main.kotlin.com.ninjacontrol.mal.err
 import main.kotlin.com.ninjacontrol.mal.int
 import main.kotlin.com.ninjacontrol.mal.list
 import main.kotlin.com.ninjacontrol.mal.string
@@ -43,10 +43,9 @@ class NamespaceTest : TestSuite {
             input = """(read-string "(1 2 3)")"""
             expectedAst = list(int(1), int(2), int(3))
         },
-        testReadEval {
-            description = "slurp: invalid filename returns error"
+        testReadEvalThrows(IOException("File \"this-does-not-exist\" does not exist")) {
+            description = "slurp: invalid filename throws error"
             input = """(slurp "this-does-not-exist")"""
-            expectedAst = err("File \"this-does-not-exist\" does not exist")
         },
         testReadEval {
             description = "atom: create atom"

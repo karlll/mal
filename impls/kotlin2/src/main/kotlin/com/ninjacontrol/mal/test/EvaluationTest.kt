@@ -1,6 +1,6 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
-import main.kotlin.com.ninjacontrol.mal.err
+import main.kotlin.com.ninjacontrol.mal.NotFoundException
 import main.kotlin.com.ninjacontrol.mal.int
 import main.kotlin.com.ninjacontrol.mal.string
 
@@ -36,10 +36,9 @@ class EvaluationTest : TestSuite {
             input = """(do (def! X 24) (let* (Y 12) (let* (Z 39) X)))"""
             expectedAst = int(24)
         },
-        testReadEval {
+        testReadEvalThrows(NotFoundException("Symbol 'badSymbol' not found")) {
             description = "do: catch error while evaluating"
             input = """(do (+ 1 2) badSymbol true)"""
-            expectedAst = err("Symbol 'badSymbol' not found")
         },
         testReadEval {
             description = "def+let+fn: closures nests environments"

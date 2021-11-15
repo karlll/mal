@@ -49,7 +49,6 @@ class QuoteTest : TestSuite {
             description = "quasiquote: splice-unquoted, shorthand"
             input = """(do (def! ulon '(i j)) `(x ~@ulon y))"""
             expectedAst = list(symbol("x"), symbol("i"), symbol("j"), symbol("y"))
-            only = true
         },
         testReadEval {
             description = "quasiquote: shorthand"

@@ -49,7 +49,7 @@ fun readDerefForm(reader: Reader): MalType {
     val list = list(symbol("deref"))
     return when (val form = readForm(reader)) {
         is MalError -> form
-        is MalEOF -> MalError("Unexpected EOF")
+        is MalEOF -> throw ParseException("Unexpected EOF")
         else -> {
             list.items.add(form)
             list
@@ -62,7 +62,7 @@ fun readQuote(reader: Reader, symbol: MalSymbol = symbol("quote")): MalType {
     val list = list(symbol)
     return when (val form = readForm(reader)) {
         is MalError -> form
-        is MalEOF -> MalError("Unexpected EOF")
+        is MalEOF -> throw ParseException("Unexpected EOF")
         else -> {
             list.items.add(form)
             list
@@ -79,7 +79,7 @@ fun readList(reader: Reader): MalType {
             return list
         } else when (val form = readForm(reader)) {
             is MalError -> return form
-            is MalEOF -> return MalError("Unexpected EOF")
+            is MalEOF -> throw ParseException("Unexpected EOF")
             else -> list.items.add(form)
         }
     }
@@ -94,7 +94,7 @@ fun readVector(reader: Reader): MalType {
             return vector
         } else when (val form = readForm(reader)) {
             is MalError -> return form
-            is MalEOF -> return MalError("Unexpected EOF")
+            is MalEOF -> throw ParseException("Unexpected EOF")
             else -> vector.items.add(form)
         }
     }
@@ -110,11 +110,11 @@ fun readMap(reader: Reader): MalType {
                 reader.skip()
                 map
             } else {
-                MalError("Missing value for key=$key")
+                throw NotFoundException("Missing value for key=$key")
             }
         } else when (val form = readForm(reader)) {
             is MalError -> return form
-            is MalEOF -> return MalError("Unexpected EOF")
+            is MalEOF -> throw ParseException("Unexpected EOF")
             else -> {
                 if (key == null) {
                     key = form

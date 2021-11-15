@@ -13,11 +13,11 @@ class Environment(
             bindings: List<MalType>,
             expressions: List<MalType>,
             env: Environment
-        ): Environment? {
+        ): Environment {
             val markerPos = bindings.indexOfFirst { it is MalSymbol && it.name == "&" }
             if (markerPos != (bindings.size - 1) - 1) {
                 // sanity check: we only understand a '&' marker if it is in the next to last position
-                return null
+                throw InvalidArgumentException("Bad variadic argument")
             }
             val paramsFirst = bindings.subList(0, markerPos)
             val paramRest = bindings[markerPos + 1]
@@ -45,17 +45,17 @@ class Environment(
             outer: Environment? = null,
             bindings: List<MalType>,
             expressions: List<MalType>
-        ): Environment? {
+        ): Environment {
             val env = Environment(outer)
             return when {
-                bindings.any { it !is MalSymbol } -> null
+                bindings.any { it !is MalSymbol } -> throw InvalidArgumentException("Bindings should be symbols")
                 bindings.any { it is MalSymbol && it.name == "&" } -> zipWithVariadicParams(
                     bindings,
                     expressions,
                     env
                 )
                 (bindings.size == expressions.size) -> zipParams(bindings, expressions, env)
-                else -> null
+                else -> throw InvalidArgumentException("Bindings and expressions mismatch")
             }
         }
     }
@@ -74,6 +74,10 @@ class Environment(
     }
 
     fun get(symbol: MalSymbol) = find(symbol)?.let { env ->
+        env.data[symbol]
+    } ?: throw NotFoundException("Symbol '${symbol.name}' not found")
+
+    fun getOrError(symbol: MalSymbol) = find(symbol)?.let { env ->
         env.data[symbol]
     } ?: MalError("Symbol '${symbol.name}' not found")
 

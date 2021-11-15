@@ -33,7 +33,7 @@ class EnvironmentTest : TestSuite {
                         symbol("xug")
                     )
                 )
-                assertEqual(env!!.get(symbol("foo")), symbol("xux"))
+                assertEqual(env.get(symbol("foo")), symbol("xux"))
                 assertEqual(env.get(symbol("bar")), symbol("bug"))
                 assertEqual(env.get(symbol("baz")), symbol("xug"))
             }
@@ -56,7 +56,7 @@ class EnvironmentTest : TestSuite {
                     )
                 )
                 assertNotNull(env)
-                assertEqual(env!!.get(symbol("foo")), symbol("xux"))
+                assertEqual(env.get(symbol("foo")), symbol("xux"))
                 assertEqual(env.get(symbol("baz")), list(symbol("bug"), symbol("xug")))
             }
         },
@@ -77,7 +77,7 @@ class EnvironmentTest : TestSuite {
                     )
                 )
                 assertNotNull(env)
-                assertEqual(env!!.get(symbol("foo")), symbol("xux"))
+                assertEqual(env.get(symbol("foo")), symbol("xux"))
                 assertEqual(env.get(symbol("baz")), list(symbol("xug")))
             }
         },
@@ -111,7 +111,7 @@ class EnvironmentTest : TestSuite {
                     )
                 )
                 assertNotNull(env)
-                assertEqual(env!!.get(symbol("a")), symbol("a1"))
+                assertEqual(env.get(symbol("a")), symbol("a1"))
                 assertEqual(env.get(symbol("b")), symbol("b1"))
                 assertEqual(env.get(symbol("c")), symbol("c1"))
                 assertEqual(env.get(symbol("d")), symbol("d1"))

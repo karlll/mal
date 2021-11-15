@@ -16,7 +16,6 @@ class MacroTest : TestSuite {
             description = "macroexpand: expand macro"
             input = """(do (defmacro! leet (fn* () 1337)) (macroexpand (leet)))"""
             expectedAst = int(1337)
-            only = true
         },
 
     )

@@ -1,6 +1,9 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
+import main.kotlin.com.ninjacontrol.mal.MalException
 import main.kotlin.com.ninjacontrol.mal.MalType
+import main.kotlin.com.ninjacontrol.mal.re
+import main.kotlin.com.ninjacontrol.mal.replExecutionEnv
 import kotlin.system.exitProcess
 
 interface TestSuite {
@@ -100,12 +103,34 @@ fun testReadEval(case: ReadEvalTestCase.() -> Unit): TestCase {
     return t
 }
 
+inline fun <reified T : MalException> testReadEvalThrows(
+    exception: T,
+    crossinline case: ReadEvalTestCase.() -> Unit
+): TestCase {
+    val t = ReadEvalTestCase()
+    var caught: Throwable? = null
+    t.case()
+    t.verify = {
+        try {
+            re(t.input, replExecutionEnv)
+        } catch (e: Throwable) {
+            caught = e
+        }
+        when {
+            caught == null -> throw AssertionException("No exception thrown")
+            caught !is T -> throw AssertionException("Unexpected exception, $caught")
+            (caught as T).message != exception.message -> throw AssertionException("Expected exception with message '${exception.message}' but got '${(caught as T).message}' instead")
+        }
+    }
+    return t
+}
+
 fun runSuite() {
     val tests = AllTests()
     var result = false
     try {
         result = tests.run()
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         result = false
         tests.log("*** Got exception ${e.javaClass}, '${e.message}'")
     } finally {

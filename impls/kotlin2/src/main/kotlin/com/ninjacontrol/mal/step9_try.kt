@@ -43,33 +43,25 @@ fun eval(ast: MalType, env: Environment): MalType {
                             is MalVector -> f.params.asList()
                             else -> null
                         }
-                        if (params == null) MalError("Invalid parameter type")
+                        if (params == null) throw InvalidArgumentException("Invalid parameter type")
                         else {
-                            when (
-                                val newEnv = Environment.withBindings(
-                                    outer = f.environment,
-                                    bindings = params.items,
-                                    expressions = evaluatedList.tail.items
-                                )
-                            ) {
-                                null -> MalError("Error creating environment")
-                                else -> {
-                                    nextEnv = newEnv
-                                    nextAst = f.ast
-                                    null
-                                }
-                            }
+                            val newEnv = Environment.withBindings(
+                                outer = f.environment,
+                                bindings = params.items,
+                                expressions = evaluatedList.tail.items
+                            )
+                            nextEnv = newEnv
+                            nextAst = f.ast
+                            null
                         }
                     }
                     is MalFunction ->
                         f.apply(evaluatedList.tail)
-                    is MalError ->
-                        MalError("Cannot apply (${f.message})")
                     else ->
-                        MalError("Not a function")
+                        throw EvaluationException("Not a function")
                 }
             }
-            else -> MalError("Cannot apply")
+            else -> throw EvaluationException("Cannot apply")
         }
     }
     while (true) {
@@ -123,12 +115,12 @@ fun unwrapSingle(ast: MalList) = when (ast.size) {
 fun fn(expressions: MalList, env: Environment): MalType {
 
     if (expressions.size != 2) {
-        return MalError("Invalid number of arguments, expected 2")
+        throw InvalidArgumentException("Invalid number of arguments, expected 2")
     }
     val functionBindings: List<MalType> = when (val bindings = expressions.get(0)) {
         is MalList -> bindings.items
         is MalVector -> bindings.items
-        else -> return MalError("Error creating bindings, invalid type, expected list or vector")
+        else -> throw InvalidArgumentException("Error creating bindings, invalid type, expected list or vector")
     }
     val fn = MalFunction { functionArguments ->
         val newEnv = Environment.withBindings(
@@ -136,8 +128,7 @@ fun fn(expressions: MalList, env: Environment): MalType {
             bindings = functionBindings,
             expressions = functionArguments.toList()
         )
-        return@MalFunction newEnv?.let { eval(expressions.get(1), newEnv) }
-            ?: MalError("Error creating environment.")
+        return@MalFunction eval(expressions.get(1), newEnv)
     }
     return MalFunctionContainer(
         ast = expressions.get(1),
@@ -148,9 +139,8 @@ fun fn(expressions: MalList, env: Environment): MalType {
 }
 
 fun `if`(expressions: MalList, env: Environment): MalType {
-    if (expressions.size < 2) return MalError("Invalid conditional expression")
+    if (expressions.size < 2) throw InvalidArgumentException("Invalid conditional expression")
     return when (val condition = eval(expressions.get(0), env)) {
-        is MalError -> MalError("Error when evaluating condition, ${condition.message}")
         is MalBoolean, is MalNil -> when (condition) {
             False, MalNil -> expressions.getOrNull(2) ?: MalNil
             else -> expressions.get(1)
@@ -182,7 +172,7 @@ fun macroExpand(ast: MalType, env: Environment): MalType {
 fun isMacroCall(ast: MalType, env: Environment) = when {
     ast is MalList && ast.head is MalSymbol -> {
         val symbol = ast.head as MalSymbol
-        when (val value = env.get(symbol)) {
+        when (val value = env.getOrError(symbol)) {
             is MalFunctionContainer -> value.isMacro
             else -> false
         }
@@ -196,7 +186,6 @@ fun defMacro(bindingList: MalList, env: Environment): MalType {
             when (val name = bindingList.get(0)) {
                 is MalSymbol -> {
                     when (val value = eval(bindingList.get(1), env)) {
-                        is MalError -> MalError("Could not define symbol '${name.name}' (${value.message})")
                         is MalFunctionContainer -> {
                             val newValue = value.copy(isMacro = true)
                             env.set(name, newValue)
@@ -205,11 +194,11 @@ fun defMacro(bindingList: MalList, env: Environment): MalType {
                     }
                 }
                 else -> {
-                    MalError("Invalid argument (symbol)")
+                    throw InvalidArgumentException("Invalid argument (symbol)")
                 }
             }
         }
-        else -> MalError("Invalid arguments")
+        else -> throw InvalidArgumentException("Invalid number of arguments")
     }
 }
 
@@ -218,17 +207,15 @@ fun define(bindingList: MalList, env: Environment): MalType {
         2 -> {
             when (val name = bindingList.get(0)) {
                 is MalSymbol -> {
-                    when (val value = eval(bindingList.get(1), env)) {
-                        is MalError -> MalError("Could not define symbol '${name.name}' (${value.message})")
-                        else -> env.set(name, value)
-                    }
+                    val value = eval(bindingList.get(1), env)
+                    env.set(name, value)
                 }
                 else -> {
-                    MalError("Invalid argument (symbol)")
+                    throw InvalidArgumentException("Invalid argument (symbol)")
                 }
             }
         }
-        else -> MalError("Invalid arguments")
+        else -> throw InvalidArgumentException("Invalid number of arguments")
     }
 }
 
@@ -243,17 +230,15 @@ fun let(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
             bindings.chunked(2).forEach {
                 val key = it[0]
                 val evaluated = eval(it[1], env)
-                if (evaluated is MalError) {
-                    return@evaluateWithBindings MalError("Error evaluating environment, ${evaluated.message}") to null
-                } else if (key !is MalSymbol) {
-                    return@evaluateWithBindings MalError("Error evaluating environment, key must be a symbol") to null
+                if (key !is MalSymbol) {
+                    throw InvalidArgumentException("Error evaluating environment, key must be a symbol")
                 } else {
                     env.set(key, evaluated)
                 }
             }
             expression to env // TCO
         } else {
-            MalError("Invalid binding list (odd number of items)") to null
+            throw InvalidArgumentException("Invalid binding list (odd number of items)")
         }
 
     return when (expressions.size) {
@@ -264,10 +249,10 @@ fun let(expressions: MalList, env: Environment): Pair<MalType, Environment?> {
             when (newBindings) {
                 is MalList -> evaluateWithBindings(expression, newBindings.items, newEnv)
                 is MalVector -> evaluateWithBindings(expression, newBindings.items, newEnv)
-                else -> MalError("Invalid binding (not a list or vector)") to null
+                else -> throw InvalidArgumentException("Invalid binding (not a list or vector)")
             }
         }
-        else -> MalError("Invalid number of arguments") to null
+        else -> throw InvalidArgumentException("Invalid number of arguments")
     }
 }
 
@@ -279,7 +264,7 @@ fun quasiquote(ast: MalType, _env: Environment): MalType {
 
     return when {
         ast is MalList && ast.head eq Symbols.unquote -> ast.getOrNull(1)
-            ?: MalError("Invalid arguments")
+            ?: throw InvalidArgumentException("Invalid arguments")
         ast is MalList || ast is MalVector -> {
             var result = emptyList()
             val elements =
@@ -287,7 +272,7 @@ fun quasiquote(ast: MalType, _env: Environment): MalType {
             for (element in elements) {
                 result = when {
                     element is MalList && element.head eq Symbols.`splice-unquote` -> {
-                        if (element.size < 2) return MalError("Invalid number of arguments")
+                        if (element.size < 2) throw InvalidArgumentException("Invalid number of arguments")
                         list(Symbols.concat, element.get(1), result)
                     }
                     else -> {
@@ -333,7 +318,15 @@ val replExecutionEnv = Environment().apply {
 tailrec fun mainLoop() {
     out(prompt(), newLine = false)
     readLine()?.let { input ->
-        rep(input, replExecutionEnv)
+        try {
+            rep(input, replExecutionEnv)
+        } catch (e: MalException) {
+            out("*** ${e.message}")
+        } catch (e2: Throwable) {
+            out("*** Error: $e2")
+            out("*** Aborting")
+            exitProcess(1)
+        }
     } ?: run {
         out("** Exiting.")
         exitProcess(0)
@@ -348,14 +341,13 @@ val init = listOf(
 
 fun evaluateFileAndExit(file: String) {
     val expression = "(load-file \"$file\")"
-    val result = re(expression, replExecutionEnv)
-    printString(result)
-    when (result) {
-        is MalError -> {
-            exitProcess(1)
-        }
-        else ->
-            exitProcess(0)
+    try {
+        val result = re(expression, replExecutionEnv)
+        printString(result)
+        exitProcess(0)
+    } catch (e: Throwable) {
+        out("*** Error: ${e.message ?: "unknown error"}")
+        exitProcess(1)
     }
 }
 
