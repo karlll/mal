@@ -1,6 +1,7 @@
 package main.kotlin.com.ninjacontrol.mal
 
 infix fun MalType.eq(other: MalType): Boolean = isEqual(this, other)
+infix fun MalType.neq(other: MalType): Boolean = !isEqual(this, other)
 
 fun isEqual(a: MalType, b: MalType): Boolean {
     return when {
@@ -17,13 +18,18 @@ fun isEqual(a: MalType, b: MalType): Boolean {
         a is MalFunction && b is MalFunction -> a == b
         a is MalString && b is MalString -> a.value == b.value
         a is MalKeyword && b is MalKeyword -> a.name == b.name
-        a is MalMap && b is MalMap -> false // FIXME: tbd
-        a is MalAtom && b is MalAtom -> isEqual(a.value, b.value)
+        a is MalMap && b is MalMap -> compareMap(a.items, b.items)
+        a is MalAtom && b is MalAtom -> a.value eq b.value
         else -> false
     }
 }
 
+fun compareMap(aMap: Map<MalType, MalType>, bMap: Map<MalType, MalType>): Boolean {
+    if (aMap.size != bMap.size) return false
+    return aMap.all { (k, v) -> bMap[k]?.let { it eq v } ?: false }
+}
+
 fun compareList(aItems: List<MalType>, bItems: List<MalType>): Boolean {
     if (aItems.size != bItems.size) return false
-    return aItems.zip(bItems).none { (a, b) -> !isEqual(a, b) }
+    return aItems.zip(bItems).none { (a, b) -> a neq b }
 }

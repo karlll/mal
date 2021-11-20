@@ -22,6 +22,9 @@ object Symbols {
     val vec = MalSymbol("vec")
     val defMacro = MalSymbol("defmacro!")
     val macroExpand = MalSymbol("macroexpand")
+    val `try` = MalSymbol("try*")
+    val `catch` = MalSymbol("catch*")
+    val `throw` = MalSymbol("throw")
 }
 
 fun eval(ast: MalType, env: Environment): MalType {
@@ -98,12 +101,50 @@ fun eval(ast: MalType, env: Environment): MalType {
                 unwrapSingle(currentAst.tail),
                 currentEnv
             )
+            head eq Symbols.`try` -> {
+                val nextAstEnv = tryCatch(currentAst.tail, currentEnv)
+                nextAst = nextAstEnv.first
+                nextEnv = nextAstEnv.second
+            }
             else -> apply()?.let {
                 return it
             }
         }
         currentAst = nextAst
         currentEnv = nextEnv
+    }
+}
+
+fun tryCatch(ast: MalList, env: Environment): Pair<MalType, Environment> {
+    if (ast.size < 1) throw InvalidArgumentException("Invalid number of arguments")
+    val tryForm = ast.get(0)
+    if (ast.size == 1) { // accept a try expression without a catch
+        return eval(tryForm, env) to env
+    }
+
+    when (val catchForm = ast.get(1)) {
+        is MalList -> {
+            when {
+                catchForm.size != 3 -> throw InvalidArgumentException("Expected a catch expression with two arguments")
+                catchForm.head neq Symbols.catch -> throw InvalidArgumentException("Expected a 'catch' expression following 'try'.")
+                catchForm.get(1) !is MalSymbol -> throw InvalidArgumentException("Expected symbol")
+                else -> {
+                    return try {
+                        val tryResult = eval(tryForm, env)
+                        tryResult to env
+                    } catch (e: Throwable) {
+                        val exception =
+                            if (e is UserException) (e as UserException).toMap() else e.toMap()
+                        val bindSymbol = catchForm.get(1) as MalSymbol
+                        val newEnv = Environment(outer = env)
+                        val catchExpression = catchForm.get(2)
+                        newEnv.set(bindSymbol, exception)
+                        catchExpression to newEnv
+                    }
+                }
+            }
+        }
+        else -> throw InvalidArgumentException("Expected a list")
     }
 }
 

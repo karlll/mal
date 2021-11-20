@@ -36,7 +36,31 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("cons") to cons(),
     symbol("concat") to concat(),
     symbol("vec") to vec(),
-    symbol("throw") to `throw`()
+    symbol("throw") to `throw`(),
+    symbol("apply") to apply(),
+    symbol("map") to map(),
+    symbol("true?") to `true?`(),
+    symbol("false?") to `false?`(),
+    symbol("nil?") to `nil?`(),
+    symbol("symbol?") to `symbol?`(),
+    symbol("symbol") to symbol(),
+    symbol("keyword") to keyword(),
+    symbol("vector?") to `vector?`(),
+    symbol("int?") to `int?`(),
+    symbol("map?") to `map?`(),
+    symbol("str?") to `string?`(),
+    symbol("fun?") to `fun?`(),
+    symbol("keyword?") to `keyword?`(),
+    symbol("sequential?") to `sequential?`(),
+    symbol("vector") to vector(),
+    symbol("hash-map") to `hash-map`(),
+    symbol("assoc") to assoc(),
+    symbol("dissoc") to dissoc(),
+    symbol("get") to get(),
+    symbol("vals") to vals(),
+    symbol("keys") to keys(),
+    symbol("contains?") to `contains?`()
+
 )
 
 fun func(precondition: ((Arguments) -> Unit)? = null, function: FunctionBody): MalFunction =
@@ -326,6 +350,41 @@ fun concat() = func { args ->
         else -> throw InvalidArgumentException("Argument is not a list nor a vector")
     }
 }
+
+fun apply() = functionOfAtLeastArity(2) { args ->
+    if (args[0] !is MalFunctionContainer && args[0] !is MalFunction) throw InvalidArgumentException(
+        "Expected a function"
+    )
+    if ((args.last() !is MalList) && (args.last() !is MalVector)) throw InvalidArgumentException("Argument is not a list nor a vector")
+    val function = when (args[0]) {
+        is MalFunctionContainer -> (args[0] as MalFunctionContainer).fn
+        else -> (args[0] as MalFunction)
+    }
+    val argList = when (val last = args.last()) {
+        is MalList -> last.items
+        else -> (last as MalVector).items
+    }
+    val otherArgs = args.slice(1..args.size - 2)
+    val functionArgs = MalList((otherArgs + argList).toMutableList())
+    function.apply(functionArgs)
+}
+
+fun map() = functionOfArity(2) { args ->
+    if (args[0] !is MalFunctionContainer && args[0] !is MalFunction) throw InvalidArgumentException(
+        "Expected a function"
+    )
+    if (args[1] !is MalList && args[1] !is MalVector) throw InvalidArgumentException("Argument is not a list nor a vector")
+    val function = when (args[0]) {
+        is MalFunctionContainer -> (args[0] as MalFunctionContainer).fn
+        else -> (args[0] as MalFunction)
+    }
+    val argList = when (args[1]) {
+        is MalList -> (args[1] as MalList).items
+        else -> (args[1] as MalVector).items
+    }
+    MalList(items = argList.map { item -> function.apply(list(item)) }.toMutableList())
+}
+
 /* Vectors */
 
 fun vec() = functionOfArity(1) { args ->
@@ -397,10 +456,6 @@ fun deref() = typedArgumentFunction<MalAtom>(arity = 1) { args ->
     atom.value
 }
 
-fun `atom?`() = functionOfArity(1) { args ->
-    if (args[0] is MalAtom) True else False
-}
-
 fun reset() = functionOfArity(2) { args ->
     when {
         (args[0] !is MalAtom) -> throw InvalidArgumentException("Not an atom")
@@ -440,6 +495,92 @@ fun swap() = functionOfAtLeastArity(2) { args ->
 
 /* Exceptions */
 
-fun `throw`() = func { args ->
-    throw UserException("Exception")
+fun `throw`() = functionOfArity(1) { args ->
+    throw UserException(args[0])
+}
+
+/* Predicates */
+
+fun `nil?`() = functionOfArity(1) { args -> if (args[0] eq MalNil) True else False }
+fun `true?`() = functionOfArity(1) { args -> if (args[0] eq True) True else False }
+fun `false?`() = functionOfArity(1) { args -> if (args[0] eq False) True else False }
+fun `symbol?`() = functionOfArity(1) { args -> if (args[0] is MalSymbol) True else False }
+fun `atom?`() = functionOfArity(1) { args -> if (args[0] is MalAtom) True else False }
+fun `vector?`() = functionOfArity(1) { args -> if (args[0] is MalVector) True else False }
+fun `string?`() = functionOfArity(1) { args -> if (args[0] is MalString) True else False }
+fun `int?`() = functionOfArity(1) { args -> if (args[0] is MalInteger) True else False }
+fun `map?`() = functionOfArity(1) { args -> if (args[0] is MalMap) True else False }
+fun `fun?`() =
+    functionOfArity(1) { args -> if (args[0] is MalFunctionContainer || args[0] is MalFunction) True else False }
+
+fun `sequential?`() =
+    functionOfArity(1) { args -> if (args[0] is MalList || args[0] is MalVector) True else False }
+
+fun `keyword?`() = functionOfArity(1) { args -> if (args[0] is MalKeyword) True else False }
+
+/* */
+
+fun symbol() = typedArgumentFunction<MalString>(arity = 1) { args ->
+    MalSymbol((args[0] as MalString).value)
+}
+
+fun keyword() = functionOfArity(1) { args ->
+    when (val arg = args[0]) {
+        is MalString -> MalKeyword((arg as MalString).value)
+        is MalKeyword -> arg
+        else -> throw InvalidArgumentException("Expected a string or a keyword argument")
+    }
+}
+
+fun vector() = func { args ->
+    MalVector(items = args.toMutableList())
+}
+
+fun `hash-map`() = func { args ->
+    if (args.size.mod(2) != 0) throw InvalidArgumentException("Expected an even number of arguments")
+    val kvMap = mutableMapOf<MalType, MalType>()
+    args.asList().windowed(size = 2, step = 2, partialWindows = false).forEach { entry ->
+        kvMap[entry[0]] = entry[1]
+    }
+    MalMap(items = kvMap)
+}
+
+fun assoc() = functionOfAtLeastArity(2) { args ->
+    if (args[0] !is MalMap) throw InvalidArgumentException("Expected first argument to be a map")
+    if ((args.size - 1).mod(2) != 0) throw InvalidArgumentException("Expected an even number of arguments following the first argument")
+    val newMap = mutableMapOf<MalType, MalType>().apply { putAll(from = (args[0] as MalMap).items) }
+    args.asList().drop(1).windowed(size = 2, step = 2, partialWindows = false).forEach { entry ->
+        newMap[entry[0]] = entry[1]
+    }
+    MalMap(items = newMap)
+}
+
+fun dissoc() = functionOfAtLeastArity(2) { args ->
+    if (args[0] !is MalMap) throw InvalidArgumentException("Expected first argument to be a map")
+    val newMap = mutableMapOf<MalType, MalType>().apply { putAll(from = (args[0] as MalMap).items) }
+    args.asList().drop(1).forEach { key ->
+        newMap.remove(key)
+    }
+    MalMap(items = newMap)
+}
+
+fun get() = functionOfArity(2) { args ->
+    when {
+        (args[0] is MalNil) -> MalNil
+        (args[0] !is MalMap) -> throw InvalidArgumentException("Expected first argument to be a map")
+        else -> (args[0] as MalMap).items.getOrDefault(args[1], MalNil)
+    }
+}
+
+fun `contains?`() = functionOfArity(2) { args ->
+    if (args[0] !is MalMap) throw InvalidArgumentException("Expected first argument to be a map")
+    (args[0] as MalMap).items.contains(args[1]).let { MalBoolean(it) }
+}
+
+fun keys() = typedArgumentFunction<MalMap>(arity = 1) { args ->
+    MalList(items = (args[0] as MalMap).items.keys.toMutableList())
+}
+
+fun vals() = typedArgumentFunction<MalMap>(arity = 1) { args ->
+    MalList(items = (args[0] as MalMap).items.values.toMutableList())
 }

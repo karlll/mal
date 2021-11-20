@@ -58,11 +58,13 @@ val False = MalBoolean(value = false)
 
 fun symbol(name: String) = MalSymbol(name)
 fun list(vararg items: MalType): MalList = MalList(items.toMutableList())
+fun map(vararg kvPair: Pair<MalType, MalType>) = MalMap(mutableMapOf(*kvPair))
 fun string(value: String) = MalString(value)
 fun int(value: Int) = MalInteger(value)
 fun emptyList() = MalList(items = mutableListOf())
 fun err(message: String) = MalError(message)
 fun atom(value: MalType) = MalAtom(value)
+fun key(name: String) = MalKeyword(name)
 fun Array<String>.toMalList() = MalList(this.map { str -> MalString(str) }.toMutableList())
 
 typealias Arguments = Array<MalType>

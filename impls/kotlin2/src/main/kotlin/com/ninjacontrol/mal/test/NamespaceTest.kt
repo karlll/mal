@@ -1,11 +1,16 @@
 package main.kotlin.com.ninjacontrol.mal.test
 
+import main.kotlin.com.ninjacontrol.mal.False
 import main.kotlin.com.ninjacontrol.mal.IOException
+import main.kotlin.com.ninjacontrol.mal.InvalidArgumentException
+import main.kotlin.com.ninjacontrol.mal.MalNil
 import main.kotlin.com.ninjacontrol.mal.MalString
 import main.kotlin.com.ninjacontrol.mal.True
 import main.kotlin.com.ninjacontrol.mal.atom
 import main.kotlin.com.ninjacontrol.mal.int
+import main.kotlin.com.ninjacontrol.mal.key
 import main.kotlin.com.ninjacontrol.mal.list
+import main.kotlin.com.ninjacontrol.mal.map
 import main.kotlin.com.ninjacontrol.mal.string
 
 class NamespaceTest : TestSuite {
@@ -111,7 +116,116 @@ class NamespaceTest : TestSuite {
             description = "concat: vector + list + vector"
             input = """(concat [99 98] (list 97 96) [95 94])"""
             expectedAst = list(int(99), int(98), int(97), int(96), int(95), int(94))
-        }
+        },
+        testReadEval {
+            description = "try*/throw/catch*: throw and catch user exception"
+            input = """(try* (throw '(1 2 3)) (catch* E (do E)))"""
+            expectedAst = map(
+                key("type") to string("UserException"),
+                key("value") to list(int(1), int(2), int(3))
+            )
+        },
+        testReadEval {
+            description = "try*/catch*: catch built-in exception"
+            input = """(try* unknown (catch* E (do E)))"""
+            expectedAst = map(
+                key("type") to string("NotFoundException"),
+                key("message") to string("Symbol 'unknown' not found")
+            )
+        },
+        testReadEval {
+            description = "apply: call function with argument list"
+            input = """(apply (fn* (l) (cons 10 l)) [[20 23]] )"""
+            expectedAst = list(int(10), int(20), int(23))
+        },
+        testReadEval {
+            description = "apply: call built function with argument list"
+            input = """(apply + [20 23])"""
+            expectedAst = int(43)
+        },
+        testReadEval {
+            description = "apply: call function with concatenated argument list"
+            input = """(apply (fn* (& l) (cons 10 l)) 12 33 [20 23] )"""
+            expectedAst = list(int(10), int(12), int(33), int(20), int(23))
+        },
+        testReadEval {
+            description = "map: list"
+            input = """(map (fn* (o) (+ o 10)) [1 2 3 4 5])"""
+            expectedAst = list(int(11), int(12), int(13), int(14), int(15))
+        },
+        testReadEval {
+            description = "map: list, built-in function"
+            input = """(map list [1 2 3])"""
+            expectedAst = list(list(int(1)), list(int(2)), list(int(3)))
+        },
+        testReadEval {
+            description = "true?+false?: predicates"
+            input = """(list (true? true) (false? false) (true? false) (false? true))"""
+            expectedAst = list(True, True, False, False)
+        },
+        testReadEval {
+            description = "nil?: predicates"
+            input = """(list (nil? true) (nil? nil))"""
+            expectedAst = list(False, True)
+        },
+        testReadEval {
+            description = "symbol?: predicates"
+            input = """(list (symbol? true) (symbol? 'apskaft) (symbol? 12) (symbol? "foo"))"""
+            expectedAst = list(False, True, False, False)
+        },
+        testReadEval {
+            description = "hash-map: build map"
+            input = """(hash-map :foo 1 :bar 2 :baz 3)"""
+            expectedAst = map(key("foo") to int(1), key("bar") to int(2), key("baz") to int(3))
+        },
+        testReadEvalThrows(InvalidArgumentException("Expected an even number of arguments")) {
+            description = "hash-map: odd number of arguments throws exception"
+            input = """(hash-map :foo 1 :bar)"""
+        },
+        testReadEval {
+            description = "assoc: add to map"
+            input = """(assoc {:foo 1 :bar 2} :baz 3)"""
+            expectedAst = map(key("foo") to int(1), key("bar") to int(2), key("baz") to int(3))
+        },
+        testReadEvalThrows(InvalidArgumentException("Expected an even number of arguments following the first argument")) {
+            description = "assoc: odd number of arguments throws exception"
+            input = """(assoc {:foo 1 :bar 2} :blurg)"""
+        },
+        testReadEval {
+            description = "dissoc: remove from map"
+            input = """(dissoc {:foo 1 :bar 2 :baz 3} :baz :bar)"""
+            expectedAst = map(key("foo") to int(1))
+        },
+        testReadEval {
+            description = "get: get value from map by key"
+            input = """(get {:foo 1 :bar 2 :baz 3} :baz)"""
+            expectedAst = int(3)
+        },
+        testReadEval {
+            description = "get: not found returns nil"
+            input = """(get {:foo 1 :bar 2 :baz 3} :ulon)"""
+            expectedAst = MalNil
+        },
+        testReadEval {
+            description = "keys: list of keys"
+            input = """(keys {:foo 1 :bar 2 :baz 3})"""
+            expectedAst = list(key("foo"), key("bar"), key("baz"))
+        },
+        testReadEval {
+            description = "vals: list of values"
+            input = """(vals {:foo 1 :bar 2 :baz 3})"""
+            expectedAst = list(int(1), int(2), int(3))
+        },
+        testReadEval {
+            description = "contains?: true if key exists"
+            input = """(contains? {:foo 1 :bar 2 :baz 3} :foo)"""
+            expectedAst = True
+        },
+        testReadEval {
+            description = "contains?: false if key does not exist"
+            input = """(contains? {:foo 1 :bar 2 :baz 3} :uklan)"""
+            expectedAst = False
+        },
 
     )
 
