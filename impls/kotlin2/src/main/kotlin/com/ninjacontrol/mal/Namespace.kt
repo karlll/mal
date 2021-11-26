@@ -46,10 +46,11 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("symbol") to symbol(),
     symbol("keyword") to keyword(),
     symbol("vector?") to `vector?`(),
-    symbol("int?") to `int?`(),
+    symbol("number?") to `number?`(),
     symbol("map?") to `map?`(),
-    symbol("str?") to `string?`(),
-    symbol("fun?") to `fun?`(),
+    symbol("string?") to `string?`(),
+    symbol("fn?") to `fn?`(),
+    symbol("macro?") to `macro?`(),
     symbol("keyword?") to `keyword?`(),
     symbol("sequential?") to `sequential?`(),
     symbol("vector") to vector(),
@@ -59,7 +60,13 @@ val namespace: EnvironmentMap = mutableMapOf(
     symbol("get") to get(),
     symbol("vals") to vals(),
     symbol("keys") to keys(),
-    symbol("contains?") to `contains?`()
+    symbol("contains?") to `contains?`(),
+    symbol("readline") to readLineWithPrompt(),
+    symbol("meta") to meta(),
+    symbol("with-meta") to `with-meta`(),
+    symbol("time-ms") to `time-ms`(),
+    symbol("seq") to seq(),
+    symbol("conj") to conj()
 
 )
 
@@ -445,6 +452,15 @@ fun readFileAsString(fileName: String, charSet: Charset): MalType {
     }
 }
 
+fun readLineWithPrompt() = typedArgumentFunction<MalString>(arity = 1) { args ->
+    val prompt = args[0] as MalString
+    out(prompt.value)
+    when (val input = readLine()) {
+        null -> MalNil
+        else -> string(input)
+    }
+}
+
 /* Atom */
 
 fun atom() = functionOfArity(1) { args ->
@@ -508,17 +524,27 @@ fun `symbol?`() = functionOfArity(1) { args -> if (args[0] is MalSymbol) True el
 fun `atom?`() = functionOfArity(1) { args -> if (args[0] is MalAtom) True else False }
 fun `vector?`() = functionOfArity(1) { args -> if (args[0] is MalVector) True else False }
 fun `string?`() = functionOfArity(1) { args -> if (args[0] is MalString) True else False }
-fun `int?`() = functionOfArity(1) { args -> if (args[0] is MalInteger) True else False }
+fun `number?`() = functionOfArity(1) { args -> if (args[0] is MalInteger) True else False }
 fun `map?`() = functionOfArity(1) { args -> if (args[0] is MalMap) True else False }
-fun `fun?`() =
-    functionOfArity(1) { args -> if (args[0] is MalFunctionContainer || args[0] is MalFunction) True else False }
+fun `fn?`() =
+    functionOfArity(1) { args ->
+        when (val arg = args[0]) {
+            is MalFunctionContainer -> if (arg.isMacro) False else True
+            else -> if (arg is MalFunction) True else False
+        }
+    }
 
 fun `sequential?`() =
     functionOfArity(1) { args -> if (args[0] is MalList || args[0] is MalVector) True else False }
 
 fun `keyword?`() = functionOfArity(1) { args -> if (args[0] is MalKeyword) True else False }
 
-/* */
+fun `macro?`() = functionOfArity(1) { args ->
+    when (val arg = args[0]) {
+        is MalFunctionContainer -> if (arg.isMacro) True else False
+        else -> False
+    }
+}
 
 fun symbol() = typedArgumentFunction<MalString>(arity = 1) { args ->
     MalSymbol((args[0] as MalString).value)
@@ -535,6 +561,8 @@ fun keyword() = functionOfArity(1) { args ->
 fun vector() = func { args ->
     MalVector(items = args.toMutableList())
 }
+
+/*  Maps */
 
 fun `hash-map`() = func { args ->
     if (args.size.mod(2) != 0) throw InvalidArgumentException("Expected an even number of arguments")
@@ -583,4 +611,61 @@ fun keys() = typedArgumentFunction<MalMap>(arity = 1) { args ->
 
 fun vals() = typedArgumentFunction<MalMap>(arity = 1) { args ->
     MalList(items = (args[0] as MalMap).items.values.toMutableList())
+}
+
+/*  Metadata */
+
+fun meta() = functionOfArity(1) { args ->
+    when (val arg = args[0]) {
+        is MalList -> arg.metadata ?: MalNil
+        is MalMap -> arg.metadata ?: MalNil
+        is MalVector -> arg.metadata ?: MalNil
+        is MalFunction -> arg.metadata ?: MalNil
+        is MalFunctionContainer -> arg.fn.metadata ?: MalNil
+        else -> MalNil
+    }
+}
+
+fun `with-meta`() = functionOfArity(2) { args ->
+    when (val arg = args[0]) {
+        is MalList -> arg.duplicate().apply { metadata = args[1] }
+        is MalMap -> arg.duplicate().apply { metadata = args[1] }
+        is MalVector -> arg.duplicate().apply { metadata = args[1] }
+        is MalFunction -> arg.duplicate().apply { metadata = args[1] }
+        is MalFunctionContainer -> {
+            val cp = arg.duplicate()
+            val ncp = cp.apply { fn.metadata = args[1] }
+            ncp
+        }
+        else -> throw InvalidArgumentException("Invalid type, meta data is only supported for list, vector, map and function")
+    }
+}
+
+fun `time-ms`() = functionOfArity(0) {
+    val msSinceEpoch = System.currentTimeMillis()
+    val truncated = msSinceEpoch.toInt() // will overflow in 2038, fix before!
+    int(value = truncated)
+}
+
+/* Collections */
+
+fun seq() = functionOfArity(1) { args ->
+    when (val arg = args[0]) {
+        is MalList -> if (arg.isEmpty()) MalNil else arg
+        is MalVector -> if (arg.isEmpty()) MalNil else MalList(arg.items)
+        is MalString -> if (arg.value == "") MalNil else MalList(
+            arg.value.map { string(it.toString()) }.toMutableList()
+        )
+        is MalNil -> MalNil
+        else -> throw InvalidArgumentException("Invalid type, expected list, vector or string")
+    }
+}
+
+fun conj() = functionOfAtLeastArity(2) { args ->
+    if (args[0] !is MalList && args[0] !is MalVector) throw InvalidArgumentException("Argument is not a list nor a vector")
+    val items = args.drop(1)
+    when (val collection = args[0]) {
+        is MalList -> MalList(items = (items.reversed() + collection.items).toMutableList())
+        else -> MalVector(items = ((collection as MalVector).items + items).toMutableList())
+    }
 }

@@ -1,7 +1,8 @@
 package main.kotlin.com.ninjacontrol.mal
 
 sealed class MalType
-data class MalList(val items: MutableList<MalType>) : MalType() {
+
+class MalList(val items: MutableList<MalType>) : WithMetadata, MalType() {
     val head: MalType
         get() = items.firstOrNull() ?: MalNil
     val tail: MalList
@@ -27,13 +28,22 @@ data class MalList(val items: MutableList<MalType>) : MalType() {
 
     fun subList(fromIndex: Int, toIndex: Int) = MalList(items.subList(fromIndex, toIndex))
     fun cons(item: MalType): MalList = MalList(mutableListOf(item).apply { addAll(items) })
+
+    override var metadata: MalType? = null
+        get() = field ?: MalNil
 }
 
-data class MalVector(val items: MutableList<MalType>) : MalType() {
+class MalVector(val items: MutableList<MalType>) : WithMetadata, MalType() {
     val size: Int
         get() = items.size
 
     fun isEmpty() = items.isEmpty()
+    override var metadata: MalType? = null
+        get() = field ?: MalNil
+}
+
+interface WithMetadata {
+    var metadata: MalType?
 }
 
 fun MalList.asTupleList(): List<List<MalType>> =
@@ -42,7 +52,11 @@ fun MalList.asTupleList(): List<List<MalType>> =
 fun MalList.asVector(): MalVector = MalVector(items = items)
 fun MalVector.asList(): MalList = MalList(items = items)
 
-data class MalMap(val items: MutableMap<MalType, MalType>) : MalType()
+class MalMap(val items: MutableMap<MalType, MalType>) : WithMetadata, MalType() {
+    override var metadata: MalType? = null
+        get() = field ?: MalNil
+}
+
 data class MalError(val message: String) : MalType()
 data class MalSymbol(val name: String) : MalType()
 data class MalInteger(val value: Int) : MalType()
@@ -62,7 +76,6 @@ fun map(vararg kvPair: Pair<MalType, MalType>) = MalMap(mutableMapOf(*kvPair))
 fun string(value: String) = MalString(value)
 fun int(value: Int) = MalInteger(value)
 fun emptyList() = MalList(items = mutableListOf())
-fun err(message: String) = MalError(message)
 fun atom(value: MalType) = MalAtom(value)
 fun key(name: String) = MalKeyword(name)
 fun Array<String>.toMalList() = MalList(this.map { str -> MalString(str) }.toMutableList())
@@ -70,8 +83,11 @@ fun Array<String>.toMalList() = MalList(this.map { str -> MalString(str) }.toMut
 typealias Arguments = Array<MalType>
 typealias FunctionBody = (args: Arguments) -> MalType
 
-class MalFunction(private val functionBody: FunctionBody) : MalType() {
+class MalFunction(val functionBody: FunctionBody) : WithMetadata, MalType() {
     fun apply(args: MalList): MalType = functionBody.invoke(args.items.toTypedArray())
+    override var metadata: MalType? = null
+        get() = field ?: MalNil
+
     override fun hashCode() = functionBody.hashCode()
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -106,3 +122,17 @@ operator fun MalInteger.compareTo(other: MalInteger): Int = when {
 
 val MalInteger.isZero
     get() = value == 0
+
+fun MalList.duplicate() = MalList(items = this.items).apply { metadata = this.metadata }
+fun MalVector.duplicate() = MalVector(items = this.items).apply { metadata = this.metadata }
+fun MalMap.duplicate() = MalMap(items = this.items).apply { metadata = this.metadata }
+fun MalFunction.duplicate() =
+    MalFunction(functionBody = this.functionBody).apply { metadata = this.metadata }
+
+fun MalFunctionContainer.duplicate() = MalFunctionContainer(
+    ast = this.ast,
+    params = this.params,
+    environment = this.environment,
+    isMacro = this.isMacro,
+    fn = this.fn.duplicate()
+).apply { fn.metadata = this.fn.metadata }

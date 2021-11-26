@@ -354,6 +354,7 @@ val replExecutionEnv = Environment().apply {
             eval(args[0], this)
         }
     )
+    set(symbol("*host-language*"), string("kotlin"))
 }
 
 tailrec fun mainLoop() {
@@ -377,7 +378,7 @@ tailrec fun mainLoop() {
 
 val init = listOf(
     """(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))""",
-    """(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))"""
+    """(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))""",
 )
 
 fun evaluateFileAndExit(file: String) {
@@ -407,18 +408,33 @@ fun start(
     }
     if (withInit) {
         init.forEach { expression ->
-            when (val result = re(expression, replExecutionEnv)) {
-                is MalError -> {
-                    out("*** Init failed (${result.message})")
-                    exitProcess(1)
-                }
+            try {
+                re(expression, replExecutionEnv)
+            } catch (e: Throwable) {
+                out("*** Init failed (${e.message})")
+                exitProcess(1)
             }
         }
     }
     when {
         file != null -> evaluateFileAndExit(file)
         runTests -> runSuite()
-        else -> mainLoop()
+        else -> {
+            banner()
+            mainLoop()
+        }
+    }
+}
+
+fun banner() {
+
+    val bannerExpression = """(println (str "Mal [" *host-language* "]"))"""
+
+    try {
+        rep(bannerExpression, replExecutionEnv)
+    } catch (e: Throwable) {
+        out("*** (${e.message})")
+        exitProcess(1)
     }
 }
 

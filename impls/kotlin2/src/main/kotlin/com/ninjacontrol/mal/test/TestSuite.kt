@@ -64,14 +64,15 @@ class AllTests : TestSuite {
 
     override val name = "All tests"
 
-    private val testSuites = listOf<TestSuite>(
+    private val testSuites = listOf(
         EnvironmentTest(),
         NamespaceTest(),
         StringTest(),
         EvaluationTest(),
         FunctionsTest(),
         QuoteTest(),
-        MacroTest()
+        MacroTest(),
+        MetadataTest()
     )
 
     override fun getTests() = testSuites.flatMap { testSuite -> testSuite.getTests() }

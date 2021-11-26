@@ -39,9 +39,18 @@ fun readForm(reader: Reader): MalType {
             } else
                 readQuote(reader, symbol = symbol("unquote"))
         '@' -> readDerefForm(reader)
+        '^' -> readWithMetaForm(reader)
         null -> MalEOF
         else -> readAtom(reader)
     }
+}
+
+fun readWithMetaForm(reader: Reader): MalType {
+    reader.skip()
+    val metadata = readForm(reader)
+    val function = readForm(reader)
+    if (metadata == MalEOF || function == MalEOF) throw ParseException("Unexpected EOF")
+    return list(symbol("with-meta"), function, metadata)
 }
 
 fun readDerefForm(reader: Reader): MalType {
